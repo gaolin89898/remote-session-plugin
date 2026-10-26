@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
+import assert from 'node:assert/strict';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const outDir = path.join(root, 'research/browser/out');
@@ -220,8 +221,8 @@ if (await searchButton.count() > 0) {
 }
 console.log('SEARCH', JSON.stringify(searchState));
 
-// Sidebar rows use the official Workspace row components (tree items), with the
-// hand-drawn "show more" footer removed in favour of the official full list.
+// Workspace and session rows render upstream components; remote grouping and
+// progressive disclosure remain panel adapters.
 const sidebar = await page.evaluate(() => ({
   treeItems: document.querySelectorAll('[role="treeitem"]').length,
   overflow: (() => {
@@ -384,10 +385,10 @@ const state = await page.evaluate(() => ({
   flowItems: document.querySelectorAll('[data-chat-flow-kind]').length,
   turnProcess: document.querySelectorAll('[data-chat-flow-kind="turn-process"]').length,
   toolCall: document.querySelectorAll('[data-chat-flow-kind="tool-call"]').length,
-  degraded: /官方渲染降级/.test(document.body.innerText),
+  officialError: /官方.*失败：/.test(document.body.innerText),
   composerEditor: Boolean(document.querySelector('[data-input-scroll] [contenteditable="true"]')),
 }));
-console.log('HARNESS', JSON.stringify({ ready: state.ready, official: state.official, flowItems: state.flowItems, turnProcess: state.turnProcess, toolCall: state.toolCall, degraded: state.degraded, composerEditor: state.composerEditor, sendCalls }));
+console.log('HARNESS', JSON.stringify({ ready: state.ready, official: state.official, flowItems: state.flowItems, turnProcess: state.turnProcess, toolCall: state.toolCall, officialError: state.officialError, composerEditor: state.composerEditor, sendCalls }));
 console.log('CONSOLE ERRORS:', consoleErrors.slice(0, 6));
 console.log('--- body text ---');
 console.log(state.text.slice(0, 2500));
@@ -396,3 +397,7 @@ await page.screenshot({ path: path.join(root, 'research/browser/panel.png'), ful
 console.log('screenshot ->', path.join(root, 'research/browser/panel.png'));
 await browser.close();
 fs.writeFileSync(path.join(root, 'research/browser/last-run.json'), JSON.stringify({ state, consoleErrors }, null, 2));
+assert.ok(state.official && state.flowItems > 0, 'official flow missing');
+assert.ok(state.composerEditor, 'official composer missing');
+assert.equal(state.officialError, false, 'official renderer reported an error');
+assert.deepEqual(consoleErrors.filter(error => !error.startsWith('Each child in a list should have a unique')), []);

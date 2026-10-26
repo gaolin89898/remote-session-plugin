@@ -24,7 +24,6 @@ import { MessageImages, MessageImagesContent } from '../vendor/.src/packages/cli
 import { MarkdownDelegateProvider } from '../vendor/.src/packages/client/ui-primitives/src/markdown/MarkdownDelegate.tsx';
 import chatViewCss from '../vendor/.src/packages/client/ui-chat/src/client/chat/ChatView.module.css';
 import { isVisibleChatNode } from '../vendor/.src/packages/client/ui-chat/src/client/contract/chat-visibility.ts';
-import { relativeTime } from '../vendor/.src/packages/client/ui-primitives/src/relative-time.ts';
 import { ICON_SYMBOLS } from '../vendor/.src/packages/client/ui-primitives/src/icons/artwork.ts';
 import turnNavigatorCss from '../vendor/.src/packages/client/ui-chat/src/client/chat/TurnNavigator.module.css';
 import { FeedbackDialog } from '../vendor/.src/packages/client/ui-message-feedback/src/client/FeedbackDialog.tsx';
@@ -33,19 +32,24 @@ import { GoalBar } from '../vendor/.src/packages/client/ui-goal/src/client/GoalB
 import { zh as goalZh } from '../vendor/.src/packages/client/ui-goal/src/client/locales.ts';
 import rowsCss from '../vendor/.src/packages/client/ui-workspace/src/client/rows/Rows.module.css';
 import browserCss from '../vendor/.src/packages/client/ui-workspace/src/client/rows/WorkspaceBrowser.module.css';
+import { ProjectRowItem, SessionNodeItem } from '../vendor/.src/packages/client/ui-workspace/src/client/rows/Rows.tsx';
+import { ForkSessionMenuItem } from '../vendor/.src/packages/client/ui-workspace/src/client/session-actions/ForkSession.tsx';
+import { SessionIdMenuItem } from '../vendor/.src/packages/client/ui-workspace/src/client/session-actions/SessionId.tsx';
+import { zh as workspaceZh } from '../vendor/.src/packages/client/ui-workspace/src/client/locales.ts';
 import {
   IconCloseFillRegular,
   IconChevronDownOutlineRegular,
   IconDataOutlineRegular,
-  IconFolderCloseRegular,
-  IconFolderOpenRegular,
   IconNewChatOutlineRegular,
+  IconRefreshOutlineRegular,
+  IconStopFillRegular,
+  IconLoadingOutlineRegular,
+  IconLinkOutlineRegular,
   IconPlusOutlineMedium,
   IconProjectAddOutlineRegular,
   IconSearchOutlineRegular,
   IconSlidersTwoOutlineRegular,
   IconTriangleRightFillRegular,
-  StateDot,
 } from '../vendor/.src/packages/client/ui-primitives/src/index.ts';
 import {
   PermissionIconAutoReviewRegular,
@@ -67,6 +71,47 @@ const DICTIONARY: Record<string, string> = { ...conversationZh, ...chatZh };
 export const VendorInputBarStyles = inputBarCss as Record<string, string>;
 export const VendorPermissionSelectStyles = permissionSelectCss as Record<string, string>;
 export const VendorModelSelectStyles = modelSelectCss as Record<string, string>;
+
+/** Supply missing upstream artwork without replacing symbols owned by the host theme. */
+export function ensureVendorIcons() {
+  if (typeof document === 'undefined' || typeof DOMParser === 'undefined') return;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const spriteId = 'dsh-remote-session-icon-sprite';
+  let sprite = document.getElementById(spriteId);
+  const parser = new DOMParser();
+  const dropped = new Set(['width', 'height', 'xmlns', 'class', 'aria-hidden']);
+  for (const [id, markup] of Object.entries(ICON_SYMBOLS)) {
+    if (document.getElementById(id)) continue;
+    if (!sprite) {
+      sprite = document.createElementNS(svgNS, 'svg');
+      sprite.id = spriteId;
+      sprite.setAttribute('aria-hidden', 'true');
+      sprite.setAttribute('data-remote-session-icons', '');
+      sprite.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+      document.body.appendChild(sprite);
+    }
+    const root = parser.parseFromString(markup, 'image/svg+xml').documentElement;
+    const symbol = document.createElementNS(svgNS, 'symbol');
+    for (const { name, value } of Array.from(root.attributes)) {
+      if (!dropped.has(name)) symbol.setAttribute(name, value);
+    }
+    symbol.id = id;
+    for (const child of Array.from(root.childNodes)) symbol.appendChild(document.importNode(child, true));
+    sprite.appendChild(symbol);
+  }
+}
+
+const ACTION_ICONS = {
+  'new-chat': IconNewChatOutlineRegular,
+  refresh: IconRefreshOutlineRegular,
+  stop: IconStopFillRegular,
+  loading: IconLoadingOutlineRegular,
+  link: IconLinkOutlineRegular,
+};
+
+export function VendorActionIcon(props: { name: keyof typeof ACTION_ICONS; size?: number }) {
+  return React.createElement(ACTION_ICONS[props.name], { size: props.size ?? 16 });
+}
 
 export function VendorComposerChevron(props: { className?: string }) {
   return React.createElement(IconChevronDownOutlineRegular, props);
@@ -483,158 +528,87 @@ export function VendorGoalBar(props: any) {
 
 const sidebarCss = rowsCss as Record<string, string>;
 
-const ICON_PARTS = new Map<string, { attrs: Record<string, string>; inner: string } | null>();
-
-/** Parse one official sprite symbol into root attributes plus inner markup. */
-function iconParts(id: string) {
-  if (ICON_PARTS.has(id)) return ICON_PARTS.get(id);
-  const markup = (ICON_SYMBOLS as Record<string, string>)[id];
-  let parts: { attrs: Record<string, string>; inner: string } | null = null;
-  if (typeof markup === 'string' && typeof DOMParser !== 'undefined') {
-    const document = new DOMParser().parseFromString(markup, 'image/svg+xml');
-    const root = document.documentElement;
-    if (root && root.tagName.toLowerCase() === 'svg') {
-      const attrs: Record<string, string> = {};
-      for (const attribute of Array.from(root.attributes)) {
-        if (attribute.name === 'xmlns' || attribute.name === 'width' || attribute.name === 'height') continue;
-        // React SVG props are camelCase; artwork attributes arrive kebab-case.
-        const prop = attribute.name.replace(/-([a-z])/g, (_match: string, letter: string) => letter.toUpperCase());
-        attrs[prop] = attribute.value;
-      }
-      const inner = Array.from(root.childNodes)
-        .map((node) => new XMLSerializer().serializeToString(node))
-        .join('');
-      parts = { attrs, inner };
-    }
-  }
-  ICON_PARTS.set(id, parts);
-  return parts;
+function workspaceTranslate(key: string, vars?: Record<string, unknown>): string {
+  const dictionary = workspaceZh as Record<string, string>;
+  const template = dictionary[key] ?? (key === 'copy' ? '复制' : key);
+  return template.replace(/\{(\w+)\}/g, (match, name) => vars && name in vars ? String(vars[name]) : match);
 }
 
-/**
- * Render one official product glyph inline from the vendored artwork, so panel
- * rows keep their icons even when the host document mounts no icon sprite.
- * @param props - sprite symbol id and pixel size.
- * @returns an inline svg or null for an unknown symbol.
- */
-function InlineIcon(props: any) {
-  const parts = iconParts(String(props.id || ''));
-  if (!parts) return null;
-  const size = typeof props.size === 'number' ? props.size : 16;
-  return React.createElement('svg', {
-    ...parts.attrs,
-    width: size,
-    height: size,
-    className: props.className,
-    'data-icon': props.id,
-    'aria-hidden': 'true',
-    dangerouslySetInnerHTML: { __html: parts.inner },
-  });
-}
-
-/** Column-1 folder glyph for the official project row. */
-function ProjectFolderIcon(props: any) {
-  return React.createElement(InlineIcon, {
-    id: props.open ? 'dsw-icon-folder-open-regular' : 'dsw-icon-folder-close-regular',
-    size: 16,
-  });
-}
-
-/** Official rotation arrow for the project row's hover chevron slot. */
-function ProjectArrowIcon(props: any) {
-  return React.createElement(InlineIcon, { id: 'dsw-icon-triangle-right-fill-regular', size: 12, className: props.className });
-}
-
-/**
- * Official Workspace sidebar project row (folder, hover chevron, title, and a
- * hover New-Session action) without the workspace menu/drag wiring.
- * @param props - label, expanded state, toggle, and optional create callback.
- * @returns the official project row element.
- */
+/** Map remote workspace facts to the unmodified upstream row. */
 export function VendorSidebarProjectRow(props: any) {
-  const expanded = props.expanded === true;
-  const folder = React.createElement(ProjectFolderIcon, { open: expanded });
-  const arrowClassName = expanded ? `${sidebarCss.arrow} ${sidebarCss.arrowOpen}` : sidebarCss.arrow;
-  return React.createElement(
-    'div',
-    {
-      className: sidebarCss.projectRow,
-      role: 'treeitem',
-      'aria-expanded': expanded,
-      title: props.title || props.label,
-      onClick: props.onToggle,
-      style: { opacity: props.online === false ? 0.55 : 1 },
+  const canCreate = props.online !== false && typeof props.onCreate === 'function';
+  return React.createElement(ProjectRowItem, {
+    group: {
+      key: props.groupKey,
+      workspaceId: props.workspaceId || (props.cwd ? props.groupKey : undefined),
+      cwd: props.cwd || undefined,
+      createdAt: props.createdAt,
+      label: props.label,
+      sessionCount: props.sessionCount || 0,
+      expanded: props.expanded === true,
+      containsCurrent: props.active === true,
+      sessions: [],
     },
-    React.createElement('span', { className: `${sidebarCss.slot} ${sidebarCss.folder}${props.active ? ` ${sidebarCss.folderActive}` : ''}` }, folder),
-    React.createElement(
-      'span',
-      { className: `${sidebarCss.slot} ${sidebarCss.chevron}` },
-      React.createElement(ProjectArrowIcon, { className: arrowClassName }),
-    ),
-    React.createElement(
-      'span',
-      { className: sidebarCss.projectText },
-      React.createElement('span', { className: sidebarCss.title }, props.label),
-    ),
-    typeof props.onCreate === 'function'
-      ? React.createElement(
-          'span',
-          { className: sidebarCss.rowActions, onClick: (event: any) => event.stopPropagation() },
-          React.createElement(
-            'button',
-            {
-              type: 'button',
-              className: sidebarCss.iconButton,
-              'aria-label': '新建会话',
-              title: '在此工作区新建会话',
-              onClick: props.onCreate,
-            },
-            React.createElement(IconNewChatOutlineRegular, { size: 16 }),
-          ),
-        )
-      : null,
-  );
+    containsCurrentDescendant: props.active === true,
+    onToggle: props.onToggle,
+    onCreate: props.onCreate,
+    useRemoteAccess: endpoint => canCreate && endpoint === 'session/create',
+    useWorkspaceAccess: (_id, endpoint) => canCreate && endpoint === 'session/create',
+    t: workspaceTranslate,
+  });
 }
 
-/**
- * Official Workspace sidebar session row (status slot, title, trailing time).
- * @param props - title, selection/running flags, relative time, and click.
- * @returns the official session row element.
- */
+/** Supply remote data and supported action seats to the official session row. */
 export function VendorSidebarSessionRow(props: any) {
-  const selected = props.selected === true;
-  return React.createElement(
-    'div',
-    {
-      className: selected ? `${sidebarCss.sessionRow} ${sidebarCss.selected}` : sidebarCss.sessionRow,
-      role: 'treeitem',
-      'aria-selected': selected,
-      title: props.title,
-      onClick: props.onClick,
-      style: { opacity: props.online === false ? 0.55 : 1, '--dsh-workspace-indent': '12px' },
+  const session = props.session;
+  const node = {
+    id: session.id,
+    title: session.title || '',
+    cwd: session.cwd || undefined,
+    updatedAt: Number(session.updatedAt) || 0,
+    blank: session.blank === true,
+    pendingInteraction: session.pendingInteraction,
+    running: session.running === true,
+    runningSubagentCount: Number(session.runningSubagentCount) || 0,
+    completed: session.completed === true,
+    pinned: session.pinned === true,
+    archived: session.archived === true,
+  };
+  const useSessionAccess = (_id: string, endpoint: string) => endpoint === 'session/fork'
+    && props.online !== false && typeof props.onFork === 'function';
+  return React.createElement(SessionNodeItem, {
+    node,
+    currentId: props.selected ? node.id : undefined,
+    now: Date.now(),
+    onOpen: props.onClick,
+    onRenameRequest: () => {},
+    useSessionAccess,
+    t: workspaceTranslate,
+    renderSlot: (name, owner, options) => {
+      if (name !== 'sidebar.workspaces.session.menu.item') return null;
+      const share = { ...owner, t: workspaceTranslate, useMenuOpenState: () => options!.hookContext };
+      return React.createElement(React.Fragment, null,
+        React.createElement(ForkSessionMenuItem, {
+          ...share, useSessionAccess, useShortcuts: selector => selector([]), forkSession: props.onFork,
+        }),
+        React.createElement(SessionIdMenuItem, {
+          ...share,
+          copySessionId: async id => {
+            try { await navigator.clipboard.writeText(id); }
+            catch (error) { props.onActionError?.('复制失败：' + String((error as Error).message || error)); }
+          },
+        }),
+      );
     },
-    React.createElement(
-      'span',
-      { className: sidebarCss.slot },
-      props.running ? React.createElement(StateDot, { state: 'ongoing' }) : null,
-    ),
-    React.createElement('span', { className: sidebarCss.title }, props.title),
-    React.createElement(
-      'span',
-      { className: sidebarCss.rowResting },
-      React.createElement('span', { className: sidebarCss.time }, props.time || ''),
-    ),
-  );
+  });
 }
-
 
 const browserStyles = browserCss as Record<string, string>;
 
 /**
- * Official sidebar section header (label + tertiary meta), used for the peer
- * grouping line above its workspace rows.
+ * Remote peer header using upstream workspace styles and artwork.
  * @param props - label, meta text, expanded state, and toggle.
- * @returns the official-styled section header row.
+ * @returns the peer grouping row.
  */
 export function VendorSidebarSectionHeader(props: any) {
   const expanded = props.expanded !== false;
@@ -656,7 +630,7 @@ export function VendorSidebarSectionHeader(props: any) {
         opacity: props.dim ? 0.55 : 1,
       },
     },
-    React.createElement(ProjectArrowIcon, { className: arrowClassName }),
+    React.createElement(IconTriangleRightFillRegular, { className: arrowClassName, size: 12 }),
     React.createElement(
       'span',
       { className: `${browserStyles.sectionLabel} ${browserStyles.wide}`, style: { maxWidth: 'none', flex: '1 1 auto' } },
@@ -705,9 +679,9 @@ export function VendorSidebarHeaderActions(props: any) {
   return React.createElement(
     'span',
     { style: { display: 'inline-flex', alignItems: 'center', gap: 2 } },
-    button('search', '搜索会话', React.createElement(InlineIcon, { id: 'dsw-icon-search-outline-regular', size: 14 }), props.onSearch),
-    button('view', '视图选项（暂未接入）', React.createElement(InlineIcon, { id: 'dsw-icon-sliders-two-outline-regular', size: 14 }), undefined, true),
-    button('create', '新建会话', React.createElement(InlineIcon, { id: 'dsw-icon-project-add-outline-regular', size: 14 }), props.onCreate),
+    button('search', '搜索会话', React.createElement(IconSearchOutlineRegular, { size: 14 }), props.onSearch),
+    button('view', '视图选项（暂未接入）', React.createElement(IconSlidersTwoOutlineRegular, { size: 14 }), undefined, true),
+    button('create', '新建会话', React.createElement(IconProjectAddOutlineRegular, { size: 14 }), props.onCreate),
   );
 }
 
@@ -724,7 +698,7 @@ export function VendorSidebarSearchPill(props: any) {
     React.createElement(
       'button',
       { type: 'button', className: browserStyles.searchButton, 'aria-label': '搜索会话' },
-      React.createElement(InlineIcon, { id: 'dsw-icon-search-outline-regular', size: 11 }),
+      React.createElement(IconSearchOutlineRegular, { size: 11 }),
     ),
     React.createElement('input', {
       className: browserStyles.searchInput,
@@ -752,16 +726,16 @@ export function VendorSidebarSearchPill(props: any) {
           if (typeof props.onClose === 'function') props.onClose();
         },
       },
-      React.createElement(InlineIcon, { id: 'dsw-icon-close-fill-regular', size: 12 }),
+      React.createElement(IconCloseFillRegular, { size: 12 }),
     ),
   );
 }
 
 
 /**
- * Official Workspace session overflow control ("展开其余 N 个会话" / "收起").
+ * Remote overflow adapter using upstream workspace styles and locale.
  * @param props - hidden count, expansion state, and toggle callback.
- * @returns the official overflow button.
+ * @returns the overflow button.
  */
 export function VendorSidebarOverflowButton(props: any) {
   const expanded = props.expanded === true;
@@ -773,30 +747,9 @@ export function VendorSidebarOverflowButton(props: any) {
       'aria-expanded': expanded,
       onClick: props.onClick,
     },
-    expanded ? '收起' : '展开其余 ' + String(props.hiddenCount || 0) + ' 个会话',
+    workspaceTranslate(expanded ? 'sessions.collapse' : 'sessions.expand', { n: props.hiddenCount || 0 }),
   );
 }
-
-/**
- * Official workspace dictionary relative time ("刚刚 / 5分钟 / 3小时 / 2天").
- * @param props - epoch ms of the row's update time.
- * @returns the compact localized distance.
- */
-export function workspaceTimeLabel(props: any) {
-  const at = Number(props.at) || 0;
-  const now = Number(props.now) || Date.now();
-  const bucket = relativeTime(at, now);
-  if (bucket.unit === 'now') return '刚刚';
-  const table: Record<string, string> = {
-    minutes: '分钟',
-    hours: '小时',
-    days: '天',
-    months: '个月',
-    years: '年',
-  };
-  return String(bucket.n) + (table[bucket.unit] || '');
-}
-
 
 /** Translate one feedback-namespace key with the official Chinese dictionary. */
 function feedbackTranslate(key: string, vars?: Record<string, unknown>): string {

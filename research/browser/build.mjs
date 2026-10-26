@@ -67,7 +67,7 @@ const state = {
         { id: 'session-blank', title: '空白会话', cwd: 'C:/work/demo', updatedAt: now - 5000, running: false, blank: true },
         { id: 'session-a', title: 'Token 用量与域名备案咨询', cwd: 'C:/work/demo', updatedAt: now - 15 * 60 * 1000, running: false, blank: false },
         { id: 'session-b', title: '服务器部署 Hermes 服务', cwd: 'C:/work/demo', updatedAt: now - 4 * 60 * 60 * 1000, running: false, blank: false },
-        { id: 'session-c', title: '现在 ai 短剧的剧情都是从哪里', cwd: 'C:/work/demo', updatedAt: now - 26 * 60 * 60 * 1000, running: false, blank: false },
+        { id: 'session-c', title: '现在 ai 短剧的剧情都是从哪里来的，以及如何整理素材和分镜', cwd: 'C:/work/demo', updatedAt: now - 26 * 60 * 60 * 1000, running: false, blank: false },
         { id: 'session-d', title: '展开其余测试会话', cwd: 'C:/work/demo', updatedAt: now - 50 * 60 * 60 * 1000, running: false, blank: false },
         { id: 'session-e', title: '更多历史会话 A', cwd: 'C:/work/demo', updatedAt: now - 80 * 60 * 60 * 1000, running: false, blank: false },
         { id: 'session-f', title: '更多历史会话 B', cwd: 'C:/work/demo', updatedAt: now - 120 * 60 * 60 * 1000, running: false, blank: false },
@@ -88,13 +88,11 @@ const transcript = {
   truncated: false,
 };
 
-const artworkPath = path.join(root, 'vendor/.src/packages/client/ui-primitives/src/icons/artwork.ts').split(path.sep).join('/');
 const entry = path.join(outDir, 'entry.jsx');
 fs.writeFileSync(entry, `
 import React from 'react';
 import * as ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { ICON_SYMBOLS } from ${JSON.stringify(artworkPath)};
 
 const CLIENT_SOURCE = ${JSON.stringify(clientSource)};
 const FLOW_SOURCE = ${JSON.stringify(flowSource)};
@@ -136,7 +134,7 @@ function respond(body) {
 window.fetch = (input, init) => {
   const url = String(input && input.url ? input.url : input);
   const method = url.split('/').pop().split('?')[0];
-  if (method === 'state') return respond(STATE);
+  if (method === 'state' || method === 'refresh') return respond(STATE);
   const requestBody = (() => { try { return init && init.body ? JSON.parse(String(init.body)) : {}; } catch (_error) { return {}; } })();
   if (method === 'transcript') {
     if (requestBody.sessionId === 'session-blank') {
@@ -317,30 +315,6 @@ const ctx = {
   get() { return undefined; },
   provide() { return () => {}; },
 };
-// Install the product icon sprite the official components reference by id.
-try {
-  const parser = new DOMParser();
-  const sprite = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  sprite.setAttribute('style', 'display:none');
-  sprite.setAttribute('aria-hidden', 'true');
-  for (const [id, markup] of Object.entries(ICON_SYMBOLS)) {
-    const doc = parser.parseFromString(markup, 'image/svg+xml');
-    const svg = doc.documentElement;
-    const symbol = document.createElementNS('http://www.w3.org/2000/svg', 'symbol');
-    symbol.setAttribute('id', id);
-    for (const attribute of Array.from(svg.attributes)) {
-      if (attribute.name === 'xmlns' || attribute.name === 'viewBox') continue;
-      symbol.setAttribute(attribute.name, attribute.value);
-    }
-    symbol.setAttribute('viewBox', svg.getAttribute('viewBox') || '0 0 16 16');
-    symbol.innerHTML = svg.innerHTML;
-    sprite.appendChild(symbol);
-  }
-  document.body.appendChild(sprite);
-} catch (error) {
-  console.warn('icon sprite install failed', error);
-}
-
 Promise.resolve(pluginModule && pluginModule.apply ? pluginModule.apply(ctx) : undefined).then(() => {
   const page = registrations.find((entry) => entry.meta && entry.meta.name === 'main');
   const icon = registrations.find((entry) => entry.meta && entry.meta.name === 'sidebar.panellist');

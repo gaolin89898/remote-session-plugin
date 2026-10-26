@@ -8,6 +8,17 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const scenario = process.argv[2];
+if (!scenario) {
+  for (const name of ['healthy', 'empty', 'empty-events', 'flow-load', 'flow-render', 'assembler-load', 'events-load', 'missing-export']) {
+    execFileSync(process.execPath, [fileURLToPath(import.meta.url), name], { stdio: 'inherit' });
+  }
+  process.exit(0);
+}
 
 const bundlePath = path.join(process.cwd(), 'lib/client.js');
 const code = fs.readFileSync(bundlePath, 'utf8');
@@ -55,8 +66,15 @@ ReactStub.useState = (initial) => {
   }
   return [slot.value, slot.setter];
 };
-ReactStub.useEffect = (callback) => {
-  if (currentInstance) currentInstance.effects.push(callback);
+const sameDeps = (left, right) => left && right && left.length === right.length && left.every((value, index) => Object.is(value, right[index]));
+ReactStub.useEffect = (callback, deps) => {
+  const index = hookIndex++;
+  if (!currentInstance) return;
+  const before = currentInstance.hooks[index];
+  if (!before || !sameDeps(before.deps, deps)) {
+    currentInstance.hooks[index] = { deps };
+    currentInstance.effects.push(callback);
+  }
 };
 ReactStub.useRef = (initial) => {
   const instance = currentInstance;
@@ -65,17 +83,21 @@ ReactStub.useRef = (initial) => {
   if (!instance.hooks[index]) instance.hooks[index] = { current: initial };
   return instance.hooks[index];
 };
-ReactStub.useCallback = (callback) => callback;
-ReactStub.useMemo = (factory) => factory();
+ReactStub.useMemo = (factory, deps) => {
+  const index = hookIndex++;
+  if (!currentInstance) return factory();
+  const before = currentInstance.hooks[index];
+  if (!before || !sameDeps(before.deps, deps)) currentInstance.hooks[index] = { deps, value: factory() };
+  return currentInstance.hooks[index].value;
+};
+ReactStub.useCallback = (callback, deps) => ReactStub.useMemo(() => callback, deps);
 ReactStub.useLayoutEffect = ReactStub.useEffect;
-ReactStub.Component = class Component {
-  constructor(props) {
-    this.props = props;
-    this.state = {};
-  }
-  setState(partial) {
-    this.state = { ...this.state, ...partial };
-  }
+ReactStub.Component = function Component(props) {
+  this.props = props;
+  this.state = {};
+};
+ReactStub.Component.prototype.setState = function (partial) {
+  this.state = { ...this.state, ...partial };
 };
 ReactStub.PureComponent = ReactStub.Component;
 
@@ -169,19 +191,45 @@ const transcriptPayload = {
   truncated: false,
 };
 const fetchCalls = [];
+if (scenario === 'empty') transcriptPayload.messages = [];
+const vendorExports = [
+  'VendorChatFlow', 'VendorComposer', 'VendorSessionHeader', 'VendorHero',
+  'VendorSidebarProjectRow', 'VendorSidebarSessionRow', 'VendorSidebarSectionHeader',
+  'VendorSidebarOverflowButton', 'VendorSidebarHeaderActions', 'VendorSidebarSearchPill',
+  'ensureVendorIcons', 'VendorActionIcon',
+];
+const flowSource = "var React = require('react');\n" + vendorExports.map((name) =>
+  `module.exports.${name} = function ${name}(props) {
+    ${name === 'VendorChatFlow' && scenario === 'flow-render' ? "throw new Error('fixture render failure');" : ''}
+    return React.createElement('div', null, ${JSON.stringify(name)});
+  };`,
+).join('\n') + (scenario === 'missing-export' ? '\ndelete module.exports.VendorComposer;' : '');
+const assemblerSource = `module.exports.createChatAssembler = function () { return {
+  replace: function () {},
+  messages: function () { return ${scenario === 'empty' ? '[]' : "[{ role: 'assistant', text: 'official fixture' }]"}; },
+  chatSnapshot: function () { return { timeline: { turnOrder: [] } }; },
+  snapshot: function () { return { entries: [{ kind: 'node', key: 'fixture' }] }; }
+}; };`;
 globalThis.fetch = async (url, options) => {
   const body = options && typeof options.body === 'string' ? JSON.parse(options.body) : {};
   fetchCalls.push({ url: String(url), body });
   const method = String(url).split('/').pop();
-  const payload = method === 'state' ? statePayload : method === 'transcript' ? transcriptPayload : { ok: true };
+  if (method === 'vendor-flow' || method === 'vendor-assembler') {
+    const failed = scenario === 'flow-load' && method === 'vendor-flow' || scenario === 'assembler-load' && method === 'vendor-assembler';
+    return { ok: !failed, status: failed ? 503 : 200, text: async () => method === 'vendor-flow' ? flowSource : assemblerSource };
+  }
+  if (method === 'events' && scenario === 'events-load') return { ok: false, status: 503, json: async () => ({ error: 'fixture events failure' }) };
+  const payload = method === 'state' || method === 'refresh' ? statePayload : method === 'transcript' ? transcriptPayload
+    : method === 'events' ? { ok: true, events: scenario === 'empty' || scenario === 'empty-events' ? [] : [{ seq: 1, type: 'user/message', data: {} }] } : { ok: true };
   return { ok: true, status: 200, json: async () => payload };
 };
 
 /* ---------- recursive test renderer ---------- */
 const instances = new Map();
+let visibleText = '';
 function renderElement(element, pathKey) {
   if (element === null || element === undefined || typeof element === 'boolean') return;
-  if (typeof element === 'string' || typeof element === 'number') return;
+  if (typeof element === 'string' || typeof element === 'number') { visibleText += String(element); return; }
   if (Array.isArray(element)) {
     element.forEach((child, index) => renderElement(child, pathKey + '.' + index));
     return;
@@ -204,6 +252,15 @@ function renderElement(element, pathKey) {
         component.props = element.props;
         component.state = component.state || {};
         tree = component.render();
+        try {
+          renderElement(tree, key);
+        } catch (error) {
+          if (typeof element.type.getDerivedStateFromError !== 'function') throw error;
+          component.state = { ...component.state, ...element.type.getDerivedStateFromError(error) };
+          component.componentDidCatch?.(error);
+          renderElement(component.render(), key);
+        }
+        return;
       } else {
         tree = element.type(element.props);
       }
@@ -223,6 +280,7 @@ function TestWrapper() {
 async function renderUntilStable() {
   for (let pass = 0; pass < 60; pass += 1) {
     dirty = false;
+    visibleText = '';
     for (const instance of instances.values()) instance.effects = [];
     renderElement(ReactStub.createElement(TestWrapper), 'root');
     const effects = [];
@@ -242,15 +300,13 @@ globalThis.clearInterval = () => {};
 
 try {
   await renderUntilStable();
-  console.log('PASS render page with relay state; fetches:', fetchCalls.map((call) => call.url.split('/').pop()).join(','));
+  console.log('PASS render page:', scenario);
 } catch (error) {
   console.log('FAIL initial render:', error && error.stack ? error.stack : error);
   process.exit(1);
 }
 
-// Select the first remote session through the page's selection state, then
-// render the whole conversation flow (turn grouping, context row, reasoning,
-// tool group, assistant markdown, failure row, running status).
+// Select a remote session and verify the official-only render/error paths.
 try {
   let selectionSlot = null;
   for (const instance of instances.values()) {
@@ -269,29 +325,23 @@ try {
     throw new Error('transcript used wrong selection: ' + JSON.stringify(transcriptCall.body));
   }
   const rendered = [...instances.keys()].map((key) => key.split(':')[0]);
-  const expected = ['TurnBlock', 'TurnProcessRow', 'MessageRow', 'ToolRow'];
-  const missing = expected.filter((name) => !rendered.includes(name));
-  if (missing.length) throw new Error('conversation components missing from render tree: ' + missing.join(','));
-  console.log('PASS render conversation flow for', transcriptCall.body.peerId + '/' + transcriptCall.body.sessionId);
-  console.log('PASS rendered components:', expected.join(','));
-
-  // Expand the settled turn's process row and make sure thinking rows appear.
-  const turnKeys = [...instances.keys()].filter((key) => key.startsWith('TurnBlock:'));
-  let expanded = false;
-  for (const key of turnKeys) {
-    const hooks = instances.get(key).hooks;
-    if (hooks[0] && typeof hooks[0].setter === 'function' && hooks[0].value === null) {
-      hooks[0].setter(true);
-      expanded = true;
-      break;
+  const legacy = ['TurnBlock', 'TurnProcessRow', 'MessageRow', 'ToolRow', 'ReasoningRow', 'MarkdownBoundary'];
+  assert.ok(legacy.every(name => !rendered.includes(name)), 'legacy components rendered');
+  if (scenario === 'healthy') {
+    for (const name of ['VendorChatFlow', 'VendorComposer', 'VendorSessionHeader', 'VendorSidebarSectionHeader']) {
+      assert.ok(rendered.includes(name), 'missing official component: ' + name);
     }
+    assert.doesNotMatch(visibleText, /官方.*失败/);
+  } else if (scenario === 'empty') {
+    assert.ok(rendered.includes('VendorHero'));
+    assert.ok(rendered.includes('VendorComposer'));
+    assert.doesNotMatch(visibleText, /官方.*失败/);
+  } else {
+    assert.match(visibleText, /官方.*失败/);
+    assert.ok(!visibleText.includes('帮我看看项目结构'), 'raw bridge messages leaked into the body');
+    if (scenario === 'flow-load' || scenario === 'missing-export') assert.ok(!rendered.includes('VendorChatFlow'));
   }
-  if (!expanded) throw new Error('no closed turn to expand');
-  dirty = false;
-  await renderUntilStable();
-  const after = [...instances.keys()].map((key) => key.split(':')[0]);
-  if (!after.includes('ReasoningRow')) throw new Error('expanded turn did not render ReasoningRow');
-  console.log('PASS expanded turn process renders ReasoningRow + ToolRow');
+  console.log('PASS official-only conversation:', scenario);
 } catch (error) {
   console.log('FAIL conversation flow:', error && error.stack ? error.stack : error);
   process.exit(1);

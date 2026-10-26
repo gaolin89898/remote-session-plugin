@@ -1,6 +1,6 @@
 {
   "name": "dsh-remote-session",
-  "version": "3.1.0",
+  "version": "3.2.4",
   "private": true,
   "type": "module",
   "description": "DSH cross-device session bridge: list, view and continue sessions of another DSH instance through a relay.",
@@ -15,7 +15,9 @@
     "lib/index.js",
     "lib/client.js",
     "lib/session-bridge.js",
-    "lib/vendor",
+    "lib/native-gateway.js",
+    "lib/native-transport.js",
+    "lib/plugin-sync.js",
     "cordis.patch.yml",
     "package.json",
     "README.md",
