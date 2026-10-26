@@ -1,0 +1,25 @@
+# Dependencies and generated distribution packages (may contain local tokens).
+node_modules/
+dist/
+/vendor/dist/
+*.zip
+*.zip.*
+
+# Local configuration, runtime output and backups.
+.env
+.env.*
+!.env.example
+*.log
+*.bak*
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Extracted reference assets and browser test output.
+/research/app-extract/
+/research/design/
+/research/design2/
+/research/vendor/
+/research/browser/out/
+/research/browser/*.png
+/research/browser/last-run.json

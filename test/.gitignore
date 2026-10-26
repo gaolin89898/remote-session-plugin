@@ -1,0 +1,5 @@
+# runtime artifacts of the dual-instance test harness
+logs/
+*.log
+.env.local
+.env.*.local

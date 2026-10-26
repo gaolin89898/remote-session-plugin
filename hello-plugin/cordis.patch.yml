@@ -1,0 +1,18 @@
+# dsh-hello-plugin — bundle patch layer.
+#
+# This file is declared by package.json `"dsh": { "bundle": { "patch": "./cordis.patch.yml" } }`.
+# When the package is installed with
+#   dsh plugin --profile <tmp> add file:<abs path to this dir>
+# the CLI reconciles `dsh.profile.bundles` and appends "dsh-hello-plugin"; every
+# profile boot then merges this patch as one extra loader layer *after* the
+# shipped bundle layers and *before* the profile's own cordis.patch.yml.
+#
+# A top-level YAML array of loader patch entries. `insert` appends loader rows.
+#   id   — loader entry id (unique in the tree; used by later patches to target it)
+#   name — module specifier resolved from the profile's node_modules
+#   config — optional; schema = the host plugin's `export const Config` (schemastery)
+- insert:
+    - id: hello-plugin
+      name: 'dsh-hello-plugin'
+      # config:
+      #   greeting: hello

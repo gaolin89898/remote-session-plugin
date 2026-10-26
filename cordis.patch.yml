@@ -1,0 +1,26 @@
+# dsh-remote-session bundle patch layer.
+#
+# Installed with:
+#   dsh plugin --profile <profile> add file:<abs path to this directory>
+# The CLI appends "dsh-remote-session" to dsh.profile.bundles; this patch is
+# merged after the shipped bundle layers and before the profile's own patch.
+#
+# Config:
+#   relayUrl     relay base URL (no trailing slash), e.g. https://HOST:8081/dsh-relay
+#   token        shared relay token (keep this file private!). Empty -> env DSH_RELAY_TOKEN
+#   instanceId   stable id of THIS device (letters/digits/-/_), e.g. home / company
+#   instanceName display name shown on the other device
+#   indexMs      how often the local session index is pushed to the relay (ms)
+#   maxSessions  how many sessions are published per device
+#   maxMessages  transcript window size requested from the owning device
+- insert:
+    - id: remote-session
+      name: 'dsh-remote-session'
+      config:
+        relayUrl: 'https://118.196.78.91:8081/dsh-relay'
+        token: ''
+        instanceId: ''
+        instanceName: ''
+        indexMs: 10000
+        maxSessions: 60
+        maxMessages: 100

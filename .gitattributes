@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.cmd text eol=crlf
+
+# Keep generated runtime bundles byte-identical to the deployed files.
+lib/vendor/*.cjs -text -whitespace

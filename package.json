@@ -1,0 +1,77 @@
+{
+  "name": "dsh-remote-session",
+  "version": "3.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH cross-device session bridge: list, view and continue sessions of another DSH instance through a relay.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/session-bridge.js",
+    "lib/vendor",
+    "cordis.patch.yml",
+    "package.json",
+    "README.md",
+    "vendor/LICENSE.deepseek-harness"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "engines": {
+      "dsh": ">=0.2.1-rc.2"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "devDependencies": {
+    "@electron/asar": "^4.3.1",
+    "@lexical/clipboard": "^0.49.0",
+    "@lexical/dragon": "^0.49.0",
+    "@lexical/history": "^0.49.0",
+    "@lexical/html": "^0.49.0",
+    "@lexical/plain-text": "^0.49.0",
+    "@lexical/rich-text": "^0.49.0",
+    "@lexical/selection": "^0.49.0",
+    "@lexical/text": "^0.49.0",
+    "@lexical/utils": "^0.49.0",
+    "anser": "^2.3.5",
+    "diff": "^9.0.0",
+    "esbuild": "0.24.2",
+    "immer": "^10.2.0",
+    "katex": "^0.16.0",
+    "lexical": "^0.49.0",
+    "mdast": "^0.8.0",
+    "mdast-util-from-markdown": "^2.0.0",
+    "mdast-util-gfm": "^3.0.0",
+    "mdast-util-math": "^3.0.0",
+    "micromark-core-commonmark": "^2.0.0",
+    "micromark-extension-gfm": "^3.0.0",
+    "micromark-extension-math": "^3.0.0",
+    "micromark-factory-space": "^2.0.0",
+    "micromark-util-character": "^2.0.0",
+    "micromark-util-classify-character": "^2.0.0",
+    "micromark-util-sanitize-uri": "^2.0.0",
+    "micromark-util-symbol": "^2.0.0",
+    "micromark-util-types": "^2.0.0",
+    "playwright-core": "^1.49.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "shiki": "^4.5.0",
+    "simple-icons": "^16.31.0",
+    "zustand": "^5.0.0"
+  }
+}
