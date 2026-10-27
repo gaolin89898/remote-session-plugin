@@ -269,60 +269,148 @@ function PluginSyncSettings() {
     finally { setBusy(false); }
   };
   const displayed = job?.rows.length ? job.rows : rows;
-  return <section aria-label="插件同步" className="dsh-plugin-sync">
-    <style>{`
-      .dsh-plugin-sync { border-top: 1px solid var(--dsw-alias-border-l2); padding-top: 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-      .dsh-plugin-sync h3 { margin: 0; font-size: 14px; font-weight: 600; }
-      .dsh-plugin-sync-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-      .dsh-plugin-sync select { min-width: 120px; max-width: 100%; height: 32px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-background-primary); color: inherit; font: inherit; padding: 0 8px; flex: 1; }
-      .dsh-plugin-sync-list { max-height: 360px; overflow: auto; border-block: 1px solid var(--dsw-alias-border-l2); }
-      .dsh-plugin-sync-row { padding: 10px 0; border-bottom: 1px solid var(--dsw-alias-border-l2); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; font-size: 12px; }
-      .dsh-plugin-sync-row:last-child { border-bottom: 0; }
-      .dsh-plugin-sync-row > :first-child, .dsh-plugin-sync-detail { min-width: 0; overflow-wrap: anywhere; }
-      .dsh-plugin-sync-row label { align-items: flex-start; min-width: 0; }
-      .dsh-plugin-sync-row label span { overflow-wrap: anywhere; min-width: 0; }
-      .dsh-plugin-sync-detail { grid-column: 1 / -1; color: var(--dsw-alias-label-secondary); line-height: 1.5; }
-      .dsh-plugin-sync-error { color: var(--dsw-alias-state-error-primary); overflow-wrap: anywhere; }
-    `}</style>
-    <h3>插件同步</h3>
-    <div style={{ fontSize: 12 }}>来源：{snapshot ? '本机' + (snapshot.self?.name ? ' · ' + snapshot.self.name : '') : '未读取'}</div>
-    <div className="dsh-plugin-sync-tools">
-      <select aria-label="同步目标机器" value={peerId} disabled={busy || running} onChange={event => {
-        generation.current++; setPeerId(event.target.value); setRows(null); setSelected([]); setJob(null); setError(''); requestId.current = null;
-      }}>
+  const actionableCount = rows ? rows.filter((r: any) => ['install', 'update', 'enable', 'disable'].includes(r.action)).length : 0;
+
+  return <section aria-label="插件同步" className="dsh-remote-card dsh-plugin-sync">
+    <div className="dsh-card-header">
+      <div className="dsh-card-header-left">
+        <span className="dsh-card-header-icon">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13.5 9.5a5 5 0 0 1-8.7 3.5M2.5 6.5a5 5 0 0 1 8.7-3.5" />
+            <path d="M2.5 10v-3.5H6M13.5 6v3.5H10" />
+          </svg>
+        </span>
+        <div>
+          <h3 className="dsh-card-title">插件同步</h3>
+          <p className="dsh-card-desc">比对并同步本机与远程设备上的插件安装与启用状态</p>
+        </div>
+      </div>
+    </div>
+
+    {/* Device Flow Selector Bar */}
+    <div className="dsh-sync-route-bar">
+      <div className="dsh-sync-source">
+        <span style={{ color: 'var(--dsw-alias-label-tertiary)' }}>来源：</span>
+        <span className="dsh-sync-source-tag">
+          {snapshot ? '本机' + (snapshot.self?.name ? ' · ' + snapshot.self.name : '') : '未读取'}
+        </span>
+      </div>
+
+      <span className="dsh-sync-arrow">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 8h10M9 4l4 4-4 4" />
+        </svg>
+      </span>
+
+      <select
+        aria-label="同步目标机器"
+        className="dsh-sync-target-select"
+        value={peerId}
+        disabled={busy || running}
+        onChange={event => {
+          generation.current++; setPeerId(event.target.value); setRows(null); setSelected([]); setJob(null); setError(''); requestId.current = null;
+        }}
+      >
         <option value="" disabled>选择目标机器</option>
         {onlinePeers.map((peer: any) => <option key={peer.id} value={peer.id} disabled={!peer.online}>{peer.name}{peer.online ? '' : '（离线）'}</option>)}
       </select>
-      <Button size="sm" variant="outline" disabled={busy || running || !target?.online} icon={<IconRefreshOutlineRegular />} onClick={() => { void compare(); }}>{busy && !job ? '处理中…' : '比较插件'}</Button>
-      <Button size="sm" variant="toolbar" title="刷新机器" aria-label="刷新同步机器" disabled={busy || running} icon={<IconRefreshOutlineRegular />} onClick={() => { void refreshMachines().catch(failure => setError(failure.message)); }} />
-    </div>
-    {snapshot && !onlinePeers.length && <div role="status">暂无远程机器</div>}
-    {displayed && <>
-      {!job && <Checkbox label="全选可同步插件" checked={!!selected.length && selected.length === rows?.filter(row => ['install', 'update', 'enable', 'disable'].includes(row.action)).length}
-        disabled={busy} onChange={(checked: boolean) => setSelected(checked ? rows!.filter(row => ['install', 'update', 'enable', 'disable'].includes(row.action)).map(row => row.name) : [])} />}
-      <div className="dsh-plugin-sync-list" aria-label="插件同步列表">
-        {displayed.map((row: any) => <div key={row.name} className="dsh-plugin-sync-row" data-plugin-sync-name={row.name}>
-          <Checkbox label={row.name} checked={job ? row.state !== 'skipped' : selected.includes(row.name)}
-            disabled={busy || !!job || !['install', 'update', 'enable', 'disable'].includes(row.action)}
-            onChange={(checked: boolean) => setSelected(value => checked ? [...value, row.name] : value.filter(name => name !== row.name))} />
-          <span>{job ? syncStates[row.state] : syncActions[row.action]}</span>
-          <div className="dsh-plugin-sync-detail">本机 {row.localVersion || '—'} · {row.enabled ? '启用' : '停用'} / 目标 {row.remoteVersion || '未安装'} · {row.remoteEnabled ? '启用' : '停用'}{row.version && row.version !== row.localVersion ? ' · 安装 ' + row.version : ''}</div>
-          {(row.reason || row.error) && <div className={'dsh-plugin-sync-detail' + (row.error ? ' dsh-plugin-sync-error' : '')}>{row.error || row.reason}</div>}
-        </div>)}
+
+      <div className="dsh-sync-buttons">
+        <Button size="sm" variant="outline" disabled={busy || running || !target?.online} icon={<IconRefreshOutlineRegular />} onClick={() => { void compare(); }}>{busy && !job ? '处理中…' : '比较插件'}</Button>
+        <Button size="sm" variant="toolbar" title="刷新机器" aria-label="刷新同步机器" disabled={busy || running} icon={<IconRefreshOutlineRegular />} onClick={() => { void refreshMachines().catch(failure => setError(failure.message)); }} />
       </div>
-      {!job && <Button size="sm" variant="primary" style={{ alignSelf: 'flex-end' }} icon={<IconDownloadOutlineRegular />} disabled={busy || !selected.length || !target?.online} onClick={() => { void start(); }}>同步到{target?.name || '远程机器'}{selected.length ? `（${selected.length}）` : ''}</Button>}
-    </>}
-    {job && <div role="status" style={{ fontSize: 12 }}>
-      {running ? `正在同步 ${job.rows.filter((row: any) => row.state === 'done').length}/${job.rows.length}` : job.state === 'done' ? '插件同步完成' : job.state === 'cancelled' ? '同步已取消' : '部分插件同步失败'}
-      {job.restartRequired && <div>目标机器需要重启 DSH 后生效</div>}
+    </div>
+
+    {snapshot && !onlinePeers.length && <div role="status" className="dsh-alert-banner" style={{ background: 'var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.03))' }}>暂无远程机器</div>}
+
+    {displayed && <div className="dsh-sync-results">
+      <div className="dsh-sync-list-header">
+        {!job ? (
+          <Checkbox
+            label="全选可同步插件"
+            checked={!!selected.length && selected.length === actionableCount}
+            disabled={busy}
+            onChange={(checked: boolean) => setSelected(checked ? rows!.filter(row => ['install', 'update', 'enable', 'disable'].includes(row.action)).map(row => row.name) : [])}
+          />
+        ) : (
+          <span style={{ fontWeight: 500 }}>同步明细</span>
+        )}
+        <span className="dsh-sync-list-count">
+          {rows ? `共 ${rows.length} 个插件` + (actionableCount ? ` · 可同步 ${selected.length}/${actionableCount}` : '') : ''}
+        </span>
+      </div>
+
+      <div className="dsh-plugin-sync-list" aria-label="插件同步列表">
+        {displayed.map((row: any) => {
+          const actionText = job ? syncStates[row.state] : syncActions[row.action];
+          const pillClass = `dsh-status-pill dsh-status-pill-${job ? row.state : row.action}`;
+          return (
+            <div key={row.name} className="dsh-plugin-sync-row" data-plugin-sync-name={row.name}>
+              <div className="dsh-plugin-row-top">
+                <Checkbox
+                  label={row.name}
+                  checked={job ? row.state !== 'skipped' : selected.includes(row.name)}
+                  disabled={busy || !!job || !['install', 'update', 'enable', 'disable'].includes(row.action)}
+                  onChange={(checked: boolean) => setSelected(value => checked ? [...value, row.name] : value.filter(name => name !== row.name))}
+                />
+                <span className={pillClass}>{actionText}</span>
+              </div>
+              <div className="dsh-plugin-sync-detail">
+                本机 {row.localVersion || '—'} · {row.enabled ? '启用' : '停用'} / 目标 {row.remoteVersion || '未安装'} · {row.remoteEnabled ? '启用' : '停用'}
+                {row.version && row.version !== row.localVersion ? ' · 安装 ' + row.version : ''}
+              </div>
+              {(row.reason || row.error) && <div className={'dsh-plugin-sync-detail' + (row.error ? ' dsh-plugin-sync-error' : '')}>{row.error || row.reason}</div>}
+            </div>
+          );
+        })}
+      </div>
+
+      {!job && (
+        <div className="dsh-card-actions">
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<IconDownloadOutlineRegular />}
+            disabled={busy || !selected.length || !target?.online}
+            onClick={() => { void start(); }}
+          >
+            同步到{target?.name || '远程机器'}{selected.length ? `（${selected.length}）` : ''}
+          </Button>
+        </div>
+      )}
     </div>}
-    {running && <Button size="sm" variant="outline" style={{ alignSelf: 'flex-end' }} disabled={busy || job.cancelRequested} onClick={async () => {
-      setBusy(true);
-      try { setJob(await post('plugin-sync/cancel', { peerId, id: job.id })); }
-      catch (failure: any) { setError(failure.message); }
-      finally { setBusy(false); }
-    }}>{job.cancelRequested ? '正在取消…' : '取消同步'}</Button>}
-    {error && <div role="alert" className="dsh-plugin-sync-error">{error}</div>}
+
+    {job && (
+      <div role="status" className="dsh-sync-job-info">
+        <div className="dsh-sync-job-status-line">
+          <StateDot state={running ? 'idle' : job.state === 'done' ? 'done' : 'error'} />
+          <span>
+            {running ? `正在同步 ${job.rows.filter((row: any) => row.state === 'done').length}/${job.rows.length}` : job.state === 'done' ? '插件同步完成' : job.state === 'cancelled' ? '同步已取消' : '部分插件同步失败'}
+          </span>
+        </div>
+        {job.restartRequired && <div className="dsh-restart-hint">目标机器需要重启 DSH 后生效</div>}
+      </div>
+    )}
+
+    {running && (
+      <div className="dsh-card-actions">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || job.cancelRequested}
+          onClick={async () => {
+            setBusy(true);
+            try { setJob(await post('plugin-sync/cancel', { peerId, id: job.id })); }
+            catch (failure: any) { setError(failure.message); }
+            finally { setBusy(false); }
+          }}
+        >
+          {job.cancelRequested ? '正在取消…' : '取消同步'}
+        </Button>
+      </div>
+    )}
+
+    {error && <div role="alert" className="dsh-alert-banner dsh-alert-error dsh-plugin-sync-error">{error}</div>}
   </section>;
 }
 
@@ -331,11 +419,13 @@ function ConnectionSettings() {
   const [meta, setMeta] = React.useState<any>(null);
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState('');
+  const [savedSuccess, setSavedSuccess] = React.useState(false);
   const [readAttempt, setReadAttempt] = React.useState(0);
   const [loaded, setLoaded] = React.useState(false);
+
   React.useEffect(() => {
     let alive = true;
-    setBusy(true); setError(''); setLoaded(false);
+    setBusy(true); setError(''); setLoaded(false); setSavedSuccess(false);
     post('settings').then(data => {
       if (!alive) return;
       setMeta(data);
@@ -344,29 +434,220 @@ function ConnectionSettings() {
     }, failure => { if (alive) setError(failure.message); }).finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
   }, [readAttempt]);
-  const fields = [['relayUrl', 'Relay 地址'], ['token', '访问令牌'], ['instanceId', '实例 ID'], ['instanceName', '实例名称']] as const;
-  return <div aria-label="远程会话设置" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 560 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <StateDot state={meta?.relay?.connected ? 'done' : 'idle'} />
-      <span style={{ flex: 1 }}>{busy ? '正在读取配置…' : !loaded ? '配置读取失败' : meta.relay?.connected ? 'relay 已连接' : 'relay 未连接'}</span>
-      <Button size="sm" variant="toolbar" title="重新读取配置" aria-label="重新读取配置" disabled={busy} icon={<IconRefreshOutlineRegular />} onClick={() => setReadAttempt(value => value + 1)} />
+
+  const mode = typeof (window as any).dshDesktopBoot?.ready === 'function' ? '客户端' : 'Web 端';
+  const currentDisplayName = form.instanceName || form.instanceId || (meta?.instanceName || meta?.instanceId) || '当前机器';
+
+  return <div aria-label="远程会话设置" className="dsh-remote-settings">
+    <style>{`
+      .dsh-remote-settings { box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 600px; color: var(--dsw-alias-label-primary); font-family: inherit; }
+      .dsh-remote-card { box-sizing: border-box; width: 100%; min-width: 0; border: 0.5px solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l2)); background: var(--dsw-alias-settings-card-fill, var(--dsw-alias-bg-layer-1)); border-radius: var(--dsw-radius-xl, 10px); padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+      .dsh-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+      .dsh-card-header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .dsh-card-header-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: var(--dsw-radius-md, 6px); background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.04)); color: var(--dsw-alias-label-secondary); flex-shrink: 0; }
+      .dsh-card-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; color: var(--dsw-alias-label-primary); }
+      .dsh-card-desc { margin: 2px 0 0; font-size: 12px; line-height: 16px; color: var(--dsw-alias-label-tertiary); }
+      .dsh-status-hero { box-sizing: border-box; width: 100%; min-width: 0; border: 0.5px solid var(--dsw-alias-settings-card-stroke, var(--dsw-alias-border-l2)); background: var(--dsw-alias-settings-card-fill, var(--dsw-alias-bg-layer-1)); border-radius: var(--dsw-radius-xl, 10px); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+      .dsh-status-hero-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; font-size: 13px; font-weight: 500; }
+      .dsh-status-hero-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+      .dsh-env-badge { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: var(--dsw-radius-md, 6px); background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.04)); border: 0.5px solid var(--dsw-alias-border-l3, rgba(0,0,0,0.08)); font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
+      .dsh-env-badge-name { font-weight: 500; color: var(--dsw-alias-label-primary); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .dsh-env-badge-mode { color: var(--dsw-alias-label-tertiary); }
+      .dsh-fields-stack { display: flex; flex-direction: column; gap: 12px; width: 100%; }
+      .dsh-grid-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; width: 100%; }
+      .dsh-field-item { display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; font-size: 12px; }
+      .dsh-field-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--dsw-alias-label-secondary); font-weight: 500; line-height: 16px; }
+      .dsh-configured-tag { font-size: 10.5px; padding: 1px 6px; border-radius: var(--dsw-radius-xs, 4px); background: rgba(82,196,26,0.1); color: var(--dsw-alias-state-success-primary); border: 0.5px solid rgba(82,196,26,0.25); font-weight: normal; }
+      .dsh-text-input { box-sizing: border-box; width: 100%; height: 32px; padding: 0 10px; border-radius: var(--dsw-radius-md, 6px); border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-background-primary); color: inherit; font: inherit; font-size: 12.5px; transition: border-color 0.15s ease; }
+      .dsh-text-input:hover:not(:disabled) { border-color: var(--dsw-alias-border-l4); }
+      .dsh-text-input:focus { outline: none; border-color: var(--dsw-alias-state-business-primary); box-shadow: 0 0 0 1px var(--dsw-alias-state-business-primary); }
+      .dsh-text-input:disabled { opacity: 0.55; cursor: not-allowed; }
+      .dsh-input-mono { font-family: var(--dsw-font-mono, monospace); font-size: 12px; }
+      .dsh-field-tip { font-size: 11px; line-height: 15px; color: var(--dsw-alias-label-tertiary); }
+      .dsh-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px; }
+      .dsh-alert-banner { box-sizing: border-box; display: flex; align-items: flex-start; gap: 6px; padding: 8px 12px; border-radius: var(--dsw-radius-md, 6px); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; width: 100%; }
+      .dsh-alert-error { background: rgba(255,77,79,0.08); border: 0.5px solid rgba(255,77,79,0.25); color: var(--dsw-alias-state-error-primary); }
+      .dsh-alert-success { background: rgba(82,196,26,0.08); border: 0.5px solid rgba(82,196,26,0.25); color: var(--dsw-alias-state-success-primary); }
+      .dsh-sync-route-bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--dsw-radius-lg, 8px); background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.02)); border: 0.5px solid var(--dsw-alias-border-l3, rgba(0,0,0,0.06)); flex-wrap: wrap; }
+      .dsh-sync-source { font-size: 12px; display: flex; align-items: center; gap: 6px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
+      .dsh-sync-source-tag { font-weight: 500; color: var(--dsw-alias-label-primary); }
+      .dsh-sync-arrow { color: var(--dsw-alias-label-tertiary); display: flex; align-items: center; flex-shrink: 0; }
+      .dsh-sync-target-select { flex: 1 1 140px; min-width: 120px; height: 32px; border-radius: var(--dsw-radius-md, 6px); border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-background-primary); color: inherit; font: inherit; font-size: 12px; padding: 0 8px; }
+      .dsh-sync-buttons { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+      .dsh-sync-results { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+      .dsh-sync-list-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px; font-size: 12px; }
+      .dsh-sync-list-count { font-size: 11px; color: var(--dsw-alias-label-tertiary); }
+      .dsh-plugin-sync-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md, 6px); background: var(--dsw-alias-background-primary); display: flex; flex-direction: column; }
+      .dsh-plugin-sync-row { padding: 9px 12px; border-bottom: 0.5px solid var(--dsw-alias-border-l3, rgba(0,0,0,0.06)); display: flex; flex-direction: column; gap: 3px; font-size: 12px; transition: background 0.1s ease; }
+      .dsh-plugin-sync-row:last-child { border-bottom: none; }
+      .dsh-plugin-sync-row:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.02)); }
+      .dsh-plugin-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+      .dsh-plugin-row-top > :first-child { min-width: 0; overflow-wrap: anywhere; }
+      .dsh-status-pill { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: var(--dsw-radius-xs, 4px); font-size: 11px; font-weight: 500; white-space: nowrap; }
+      .dsh-status-pill-install, .dsh-status-pill-update { background: rgba(24,144,255,0.1); color: var(--dsw-alias-state-business-primary); border: 0.5px solid rgba(24,144,255,0.25); }
+      .dsh-status-pill-enable, .dsh-status-pill-done { background: rgba(82,196,26,0.1); color: var(--dsw-alias-state-success-primary); border: 0.5px solid rgba(82,196,26,0.25); }
+      .dsh-status-pill-disable { background: rgba(250,173,20,0.1); color: var(--dsw-alias-state-warn-primary); border: 0.5px solid rgba(250,173,20,0.25); }
+      .dsh-status-pill-current, .dsh-status-pill-skip, .dsh-status-pill-skipped { background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.04)); color: var(--dsw-alias-label-tertiary); border: 0.5px solid var(--dsw-alias-border-l3, rgba(0,0,0,0.06)); }
+      .dsh-status-pill-running { background: rgba(24,144,255,0.1); color: var(--dsw-alias-state-business-primary); }
+      .dsh-status-pill-failed { background: rgba(255,77,79,0.1); color: var(--dsw-alias-state-error-primary); }
+      .dsh-plugin-sync-detail { font-size: 11px; line-height: 15px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
+      .dsh-plugin-sync-error { color: var(--dsw-alias-state-error-primary); }
+      .dsh-sync-job-info { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; border-radius: var(--dsw-radius-md, 6px); background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,0.02)); border: 0.5px solid var(--dsw-alias-border-l3, rgba(0,0,0,0.06)); font-size: 12px; }
+      .dsh-sync-job-status-line { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+      .dsh-restart-hint { color: var(--dsw-alias-state-warn-primary); font-size: 11px; }
+    `}</style>
+
+    {/* Hero Connection Status Banner */}
+    <div className="dsh-status-hero">
+      <div className="dsh-status-hero-left">
+        <StateDot state={meta?.relay?.connected ? 'done' : 'idle'} />
+        <span>{busy ? '正在读取配置…' : !loaded ? '配置读取失败' : meta.relay?.connected ? 'relay 已连接' : 'relay 未连接'}</span>
+      </div>
+      <div className="dsh-status-hero-right">
+        <div className="dsh-env-badge" title="当前设备身份与运行模式">
+          <StateDot state={meta?.relay?.connected ? 'done' : 'idle'} />
+          <span className="dsh-env-badge-name">本机 · {currentDisplayName}</span>
+          <span className="dsh-env-badge-mode">· {mode}</span>
+        </div>
+        <Button
+          size="sm"
+          variant="toolbar"
+          title="重新读取配置"
+          aria-label="重新读取配置"
+          disabled={busy}
+          icon={<IconRefreshOutlineRegular />}
+          onClick={() => setReadAttempt(value => value + 1)}
+        />
+      </div>
     </div>
-    {fields.map(([key, label]) => <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12 }}>
-      {label}<input aria-label={label} disabled={busy || !loaded} type={key === 'token' ? 'password' : 'text'} value={form[key]}
-        placeholder={key === 'token' && meta?.hasToken ? '已设置（留空保持不变）' : ''}
-        onChange={event => setForm(value => ({ ...value, [key]: event.target.value }))}
-        style={{ boxSizing: 'border-box', width: '100%', height: 32, padding: '0 10px', borderRadius: 6, border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-background-primary)', color: 'inherit', font: 'inherit' }} />
-    </label>)}
-    {error && <div role="alert" style={{ color: 'var(--dsw-alias-state-error-primary)' }}>{error}</div>}
-    <Button size="sm" variant="outline" disabled={busy || !loaded} style={{ alignSelf: 'flex-end' }} icon={<IconRefreshOutlineRegular />} onClick={async () => {
-      setBusy(true); setError('');
-      try {
-        const saved = await post('settings-save', form);
-        setMeta(saved); setForm(value => ({ ...value, token: '' }));
-        if (!saved.relay?.connected) setError(saved.relay?.lastError || 'relay 尚未连接');
-      } catch (failure: any) { setError(failure.message); }
-      finally { setBusy(false); }
-    }}>{busy ? '连接中…' : '保存并重连'}</Button>
+
+    {/* Relay Connection Configuration */}
+    <div className="dsh-remote-card">
+      <div className="dsh-card-header">
+        <div className="dsh-card-header-left">
+          <span className="dsh-card-header-icon">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M2 8h12M8 2c2 2 3 4 3 6s-1 4-3 6M8 2c-2 2-3 4-3 6s1 4 3 6" />
+            </svg>
+          </span>
+          <div>
+            <h3 className="dsh-card-title">中继服务</h3>
+            <p className="dsh-card-desc">配置中央转发 Relay 服务地址与安全鉴权密钥</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="dsh-fields-stack">
+        <label className="dsh-field-item">
+          <span className="dsh-field-header">Relay 地址</span>
+          <input
+            aria-label="Relay 地址"
+            disabled={busy || !loaded}
+            type="text"
+            value={form.relayUrl}
+            placeholder="例如 https://118.196.78.91:8081/dsh-relay"
+            onChange={event => setForm(value => ({ ...value, relayUrl: event.target.value }))}
+            className="dsh-text-input"
+          />
+          <span className="dsh-field-tip">用于多机器信令路由与会话隧道转发的中继 URL</span>
+        </label>
+
+        <label className="dsh-field-item">
+          <div className="dsh-field-header">
+            <span>访问令牌</span>
+            {meta?.hasToken && <span className="dsh-configured-tag">已配置</span>}
+          </div>
+          <input
+            aria-label="访问令牌"
+            disabled={busy || !loaded}
+            type="password"
+            value={form.token}
+            placeholder={meta?.hasToken ? '已设置（留空保持不变）' : '请输入访问令牌'}
+            onChange={event => setForm(value => ({ ...value, token: event.target.value }))}
+            className="dsh-text-input"
+          />
+          <span className="dsh-field-tip">与 Relay 服务建立长连接所需的安全认证 Token</span>
+        </label>
+      </div>
+    </div>
+
+    {/* Instance Identity Configuration */}
+    <div className="dsh-remote-card">
+      <div className="dsh-card-header">
+        <div className="dsh-card-header-left">
+          <span className="dsh-card-header-icon">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="2.5" width="12" height="9" rx="1.5" />
+              <path d="M5 14.5h6M8 11.5v3" />
+            </svg>
+          </span>
+          <div>
+            <h3 className="dsh-card-title">实例标识</h3>
+            <p className="dsh-card-desc">设定当前设备在中继网络中的唯一代号与好友展示名称</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="dsh-grid-fields">
+        <label className="dsh-field-item">
+          <span className="dsh-field-header">实例 ID</span>
+          <input
+            aria-label="实例 ID"
+            disabled={busy || !loaded}
+            type="text"
+            value={form.instanceId}
+            placeholder="例如 company, home, macbook"
+            onChange={event => setForm(value => ({ ...value, instanceId: event.target.value }))}
+            className="dsh-text-input dsh-input-mono"
+          />
+          <span className="dsh-field-tip">全局唯一机器 ID，建议使用小写字母和连字符</span>
+        </label>
+
+        <label className="dsh-field-item">
+          <span className="dsh-field-header">实例名称</span>
+          <input
+            aria-label="实例名称"
+            disabled={busy || !loaded}
+            type="text"
+            value={form.instanceName}
+            placeholder="例如 公司、家里台式机"
+            onChange={event => setForm(value => ({ ...value, instanceName: event.target.value }))}
+            className="dsh-text-input"
+          />
+          <span className="dsh-field-tip">在切换菜单与插件同步列表中展示的友好设备名</span>
+        </label>
+      </div>
+
+      {error && <div role="alert" className="dsh-alert-banner dsh-alert-error" style={{ color: 'var(--dsw-alias-state-error-primary)' }}>{error}</div>}
+      {savedSuccess && !error && <div className="dsh-alert-banner dsh-alert-success">✓ 配置已保存并连接成功</div>}
+
+      <div className="dsh-card-actions">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy || !loaded}
+          icon={<IconRefreshOutlineRegular />}
+          onClick={async () => {
+            setBusy(true); setError(''); setSavedSuccess(false);
+            try {
+              const saved = await post('settings-save', form);
+              setMeta(saved); setForm(value => ({ ...value, token: '' }));
+              if (!saved.relay?.connected) {
+                setError(saved.relay?.lastError || 'relay 尚未连接');
+              } else {
+                setSavedSuccess(true);
+              }
+            } catch (failure: any) { setError(failure.message); }
+            finally { setBusy(false); }
+          }}
+        >
+          {busy ? '连接中…' : '保存并重连'}
+        </Button>
+      </div>
+    </div>
+
+    {/* Plugin Synchronization */}
     <PluginSyncSettings />
   </div>;
 }
