@@ -1,0 +1,22 @@
+[Unit]
+Description=DSH remote session relay
+After=network.target
+
+[Service]
+Type=simple
+User=dsh-relay
+Group=dsh-relay
+Environment=PORT=3098
+Environment=TOKEN_FILE=/etc/dsh-relay/token
+ExecStart=/usr/bin/node /opt/dsh-relay/server.cjs
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
