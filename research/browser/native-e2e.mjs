@@ -179,6 +179,25 @@ try {
   await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
   await dismissPreview();
   await checkEnvironment('local', '本机 · 本机测试');
+  const footerLayout = await page.locator('[data-remote-environment="local"]').evaluate(indicator => {
+    const actions = indicator.closest('div:has(> div > .dsh-remote-environment)');
+    if (!actions) throw new Error('sidebar footer action row was not found');
+    const widget = document.createElement('div');
+    widget.dataset.footerLayoutFixture = 'true';
+    widget.style.cssText = 'box-sizing:border-box;flex:none;width:100%;height:180px';
+    actions.appendChild(widget);
+    const statusBox = indicator.getBoundingClientRect();
+    const widgetBox = widget.getBoundingClientRect();
+    const result = { direction: getComputedStyle(actions).flexDirection,
+      separateRows: widgetBox.top >= statusBox.bottom, status: { top: statusBox.top, bottom: statusBox.bottom },
+      widget: { top: widgetBox.top, bottom: widgetBox.bottom }, statusWidth: statusBox.width, widgetWidth: widgetBox.width };
+    widget.remove();
+    return result;
+  });
+  assert.equal(footerLayout.direction, 'column', JSON.stringify(footerLayout));
+  assert.ok(footerLayout.separateRows && footerLayout.widgetWidth > 0 && footerLayout.statusWidth > 0,
+    JSON.stringify(footerLayout));
+  console.log('PASS sidebar footer machine status and full-width widgets use separate rows');
   await page.screenshot({ path: path.join(root, 'research/browser/out/environment-local.png'), animations: 'disabled' });
   await page.getByRole('button', { name: '收起侧边栏', exact: true }).click();
   const compact = page.locator('[data-remote-environment="local"].dsh-remote-environment-compact');

@@ -1,9 +1,9 @@
 {
   "name": "dsh-remote-session",
-  "version": "3.2.4",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "DSH cross-device session bridge: list, view and continue sessions of another DSH instance through a relay.",
+  "description": "Switches between local and remote DSH workspaces and sessions, with optional plugin sync; requires your own relay server.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
