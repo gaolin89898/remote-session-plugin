@@ -16,6 +16,7 @@ const executable = path.join(desktop, 'DeepSeek Harness.exe');
 const cli = path.join(desktop, 'resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js');
 const children = [];
 const hostHomes = [];
+const hostLogs = new Map();
 const streams = new Map();
 const peers = new Map();
 const token = randomUUID();
@@ -127,6 +128,56 @@ async function checkEnvironment(peerId, environment, mode = 'Web 端', state = '
   return indicator;
 }
 
+function installSettingsFixture(home, id, plugin, label) {
+  const version = id === 'home' ? '1.0.0' : '2.0.0';
+  const source = path.join(scratch, 'fixture-packages', id, plugin);
+  const installed = source;
+  fs.mkdirSync(installed, { recursive: true });
+  fs.writeFileSync(path.join(home, plugin + '.json'), JSON.stringify({ value: id + '-initial' }));
+  fs.writeFileSync(path.join(installed, 'package.json'), JSON.stringify({
+    name: plugin, version, type: 'module', main: 'index.js',
+    exports: { '.': './index.js', './client': './client.js', './package.json': './package.json', './cordis.patch.yml': './cordis.patch.yml' },
+    dsh: { bundle: { patch: './cordis.patch.yml' }, client: { platform: 'web', immediately: true } },
+  }));
+  fs.writeFileSync(path.join(installed, 'cordis.patch.yml'), '- insert:\n    - id: ' + plugin + '\n      name: ' + plugin + '\n');
+  fs.writeFileSync(path.join(installed, 'index.js'), `
+    import fs from 'node:fs'; import path from 'node:path';
+    export const name = ${JSON.stringify(plugin)};
+    export const inject = ['connection'];
+    export function apply(ctx) {
+      const file = path.join(process.env.DSH_HOME, name + '.json');
+      ctx.connection.fetch.register({ path: '/api/' + name, methods: ['GET', 'POST'], requestBody: 'buffered',
+        async fetch(request) {
+          if (request.method === 'POST') fs.writeFileSync(file, JSON.stringify(await request.json()));
+          return Response.json(JSON.parse(fs.readFileSync(file, 'utf8')));
+        }
+      });
+    }
+  `);
+  fs.writeFileSync(path.join(installed, 'client.js'), `
+    window.__ModuleLoader__.load({ id: ${JSON.stringify(plugin)}, factory: require => {
+      const React = require('react');
+      const name = ${JSON.stringify(plugin)};
+      function Settings() {
+        const [value, setValue] = React.useState('');
+        const [saved, setSaved] = React.useState(false);
+        React.useEffect(() => { fetch('api/' + name).then(r => r.json()).then(r => setValue(r.value)); }, []);
+        return React.createElement('section', { 'aria-label': name },
+          React.createElement('p', null, 'Client ' + ${JSON.stringify(version)}),
+          React.createElement('input', { 'aria-label': name + ' value', value, onChange: e => { setValue(e.target.value); setSaved(false); } }),
+          React.createElement('button', { onClick: async () => {
+            await fetch('api/' + name, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value }) });
+            setSaved(true);
+          } }, 'Save fixture'), saved && React.createElement('output', null, 'Saved fixture'));
+      }
+      return { name, inject: ['slots'], apply(ctx) {
+        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: name, order: 95, label: () => ${JSON.stringify(label)} }, Settings));
+      } };
+    } });
+  `);
+  runCli(home, ['plugin', '--profile', 'native-fixture', 'add', 'file:' + source]);
+}
+
 async function boot(id) {
   const home = path.join(scratch, id);
   hostHomes.push(home);
@@ -134,6 +185,8 @@ async function boot(id) {
   console.log('prepare isolated native host:', id);
   runCli(home, ['--profile', 'native-fixture', '--from-default-profile', 'web', '--dump-default-config']);
   runCli(home, ['plugin', '--profile', 'native-fixture', 'add', 'file:' + root]);
+  installSettingsFixture(home, id, 'dsh-settings-fixture', '配置测试');
+  if (id === 'company') installSettingsFixture(home, id, 'dsh-remote-ui-fixture', '远端独有插件');
   if (id === 'home' || restartOnly) {
     const manifestPath = path.join(home, 'profiles/native-fixture/package.json');
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -157,6 +210,7 @@ async function boot(id) {
   });
   children.push(proc);
   let logs = '';
+  hostLogs.set(id, () => logs);
   proc.stdout.on('data', data => { logs += data; });
   proc.stderr.on('data', data => { logs += data; });
   const deadline = Date.now() + 60000;
@@ -274,6 +328,23 @@ async function run() {
   await page.evaluate(() => { window.dshDesktopBoot = { ready() {} }; });
   await dismissPreview();
   await checkEnvironment('company', '远程 · 远端测试');
+  await page.keyboard.press('Control+Alt+,');
+  const remoteSettings = page.getByRole('dialog', { name: '设置', exact: true });
+  await remoteSettings.getByRole('button', { name: '配置测试', exact: true }).click();
+  const sharedSettings = remoteSettings.getByRole('region', { name: 'dsh-settings-fixture', exact: true });
+  await sharedSettings.getByText('Client 2.0.0', { exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('input[aria-label="dsh-settings-fixture value"]')?.value === 'company-initial');
+  await sharedSettings.getByRole('textbox').fill('remote-updated');
+  await sharedSettings.getByRole('button', { name: 'Save fixture', exact: true }).click();
+  await sharedSettings.getByText('Saved fixture', { exact: true }).waitFor();
+  assert.equal(JSON.parse(fs.readFileSync(path.join(remote.home, 'dsh-settings-fixture.json'), 'utf8')).value, 'remote-updated');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(local.home, 'dsh-settings-fixture.json'), 'utf8')).value, 'home-initial');
+  await remoteSettings.getByRole('button', { name: '远端独有插件', exact: true }).click();
+  await remoteSettings.getByRole('region', { name: 'dsh-remote-ui-fixture', exact: true }).getByText('Client 2.0.0', { exact: true }).waitFor();
+  await page.screenshot({ path: path.join(root, 'research/browser/out/remote-plugin-settings.png') });
+  await page.keyboard.press('Escape');
+  await remoteSettings.waitFor({ state: 'hidden' });
+  console.log('PASS target-only plugin UI / target client version / target settings read and persistence / local settings unchanged');
   assert.equal(await page.evaluate(() => typeof window.dshDesktopBoot.ready), 'function');
   await page.screenshot({ path: path.join(root, 'research/browser/out/environment-desktop-to-web.png'), animations: 'disabled' });
   let targetRuntime = 'desktop';
@@ -368,6 +439,17 @@ async function run() {
   await page.waitForFunction(() => window.__DSH_REMOTE_SESSION__?.peerId === 'local', null, { timeout: 60000 });
   await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
   assert.ok(await page.evaluate(() => window.__DSH_BOOT__.entries.some(entry => entry.id === '@deepseek-ai/dsh-experimental-client-ui-cot-translation')));
+  await dismissPreview();
+  if (await welcome.isVisible()) await welcome.getByRole('button', { name: '关闭', exact: true }).click();
+  await page.keyboard.press('Control+Alt+,');
+  const localSettings = page.getByRole('dialog', { name: '设置', exact: true });
+  await localSettings.getByRole('button', { name: '配置测试', exact: true }).click();
+  await localSettings.getByText('Client 1.0.0', { exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('input[aria-label="dsh-settings-fixture value"]')?.value === 'home-initial');
+  assert.equal(await localSettings.getByRole('button', { name: '远端独有插件', exact: true }).count(), 0);
+  await page.keyboard.press('Escape');
+  await localSettings.waitFor({ state: 'hidden' });
+  console.log('PASS switch back restores local plugin version and settings, and removes target-only plugin UI');
   await page.evaluate(() => { window.dshDesktopBoot = { ready() {} }; });
   await dismissPreview();
   await checkEnvironment('local', '本机 · 本机测试');
@@ -427,7 +509,8 @@ async function run() {
   await syncPanel.getByRole('button', { name: '取消同步', exact: true }).waitFor();
   await settings.getByRole('button', { name: '通用设置', exact: true }).click();
   await settings.getByRole('button', { name: '远程会话', exact: true }).click();
-  await syncPanel.getByText('插件同步完成', { exact: true }).waitFor({ timeout: 120000 });
+  await syncPanel.locator('.dsh-sync-job-info').filter({ hasText: /插件同步完成|部分插件同步失败|同步已取消/ }).waitFor({ timeout: 120000 });
+  assert.ok(await syncPanel.getByText('插件同步完成', { exact: true }).isVisible(), await syncPanel.innerText());
   assert.ok((await translationRow.innerText()).includes('已完成'));
   assert.ok((await installRow.innerText()).includes('已完成'));
   assert.ok((await installRow.innerText()).includes('目标 1.0.0 · 启用'));
@@ -472,6 +555,8 @@ async function run() {
 try {
   await run();
 } catch (error) {
+  console.error((await page?.getByRole('region', { name: '插件同步', exact: true }).innerText().catch(() => '')) || '');
+  for (const [id, logs] of hostLogs) console.error(id + ': ' + logs().replaceAll(token, '<redacted>').replace(/([?&]token=)[^\s]+/g, '$1<redacted>').slice(-6000));
   await page?.screenshot({ path: path.join(root, 'research/browser/out/native-failure.png') }).catch(() => {});
   throw error;
 } finally {

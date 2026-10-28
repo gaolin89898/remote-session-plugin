@@ -1,6 +1,6 @@
 # DSH Remote Session
 
-在多台 DSH 之间切换工作区和会话，继续使用 DSH 自带的页面、编辑器和模型选择器。对话由当前选中的那台机器运行。
+在多台 DSH 之间切换完整界面，包括目标机器的设置、账号、模型、插件、工作区和会话。界面组件及插件版本来自当前选中的机器，配置读取、修改和对话执行也在该机器完成。
 
 > **需要自备服务器。** 插件不会替你托管或部署中转服务。本机和远端 DSH 都必须能访问你自己的 relay 服务器。按[部署指南](relay/README.md)操作即可。
 
@@ -8,7 +8,7 @@
 
 ## 安装
 
-在每台 DSH 上安装插件并重启。两端都需要 **1.0.0 或更新版本**。
+在每台 DSH 上安装插件并重启。完整界面切换需要两端都安装 **1.2.0 或更新版本**；旧版目标会提示升级。
 
 ```bat
 git clone https://github.com/gaolin89898/remote-session-plugin.git
@@ -29,6 +29,10 @@ cd remote-session-plugin
 
 所有机器使用同一个 Relay 地址和令牌。保存后状态显示“relay 已连接”，点击侧栏的 **远程会话** 即可切换机器。
 
+切换后，远端独有插件也会显示；设置保存在远端，不覆盖本机配置。切回本机后恢复本机的界面与插件。机器菜单和“远程会话”的 relay 连接管理始终由入口机器提供。
+
+浏览器草稿和界面缓存按机器隔离，不会复制目标浏览器的 Cookie 或缓存。远端插件使用 DSH 原生 API 和客户端模块加载机制；依赖操作系统桌面桥接、独立 WebSocket 或自定义 HTTP 服务的第三方功能仍取决于其实现，不会自动转发到远端。
+
 ## 插件同步
 
 在 **设置 → 远程会话 → 插件同步** 中选择目标机器，可安装缺少的插件、更新已发布插件和同步启用状态。插件配置、令牌和本地路径不会复制。
@@ -46,7 +50,7 @@ cd remote-session-plugin
 HTTPS 保护传输，relay 服务器仍可读取转发内容；当前不提供端到端加密。新插件通过 `Authorization` 请求头建立 SSE 连接。升级时先更新 relay，再更新各设备插件；relay 仍兼容旧版客户端，无需更换现有令牌。
 
 - relay 未连接：检查地址是否包含 `/dsh-relay`，并确认两台机器的令牌相同。
-- 看不到另一台机器：确认它已启动 DSH、安装 1.0.0 以上版本插件，并使用相同的地址和令牌。
+- 看不到另一台机器：确认它已启动 DSH、安装 1.2.0 或更新版本插件，并使用相同的地址和令牌。
 - relay 服务未运行：在服务器查看 `sudo journalctl -u dsh-relay -n 100 --no-pager`。
 
 ## 开发验证
@@ -58,6 +62,6 @@ npm test
 npm run test:native
 ```
 
-`test:native` 在临时目录启动两个真实 DSH 实例，通过浏览器验证切机、原生工作区、附件上传、插件同步与远端重启。需要已安装 Windows 版 DeepSeek Harness 和 Chromium；可通过 `DSH_DESKTOP`、`DSH_CHROMIUM` 指定路径。详情见 [测试说明](test/README.md)。
+`test:native` 在临时目录启动两个真实 DSH 实例，通过浏览器验证完整界面切换、远端独有插件、不同插件版本、设置的远端保存与本机隔离、原生工作区、附件上传、插件同步与远端重启。需要已安装 Windows 版 DeepSeek Harness 和 Chromium；可通过 `DSH_DESKTOP`、`DSH_CHROMIUM` 指定路径。详情见 [测试说明](test/README.md)。
 
 旧 Vendor 方案已[归档](research/legacy-vendor/README.md)，不参与当前构建或测试。

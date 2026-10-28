@@ -41,7 +41,7 @@ async function host(t, { relay = false, config = {}, sessionEvents = [], incompa
       createSharedFetchHandler: () => ({ fetch: async request => new Response(await request.arrayBuffer()) }),
     },
     typertGateway: { wireStream: incompatible ? {} : { open: async function *() {}, failure: error => ({ message: error.message }) } },
-    clientModules: { graph: () => ({ entries: [] }) },
+    clientModules: { graph: () => ({ entries: [], batches: [] }), fetchBundle: async () => new Response('fixture') },
   };
   const previousHome = process.env.DSH_HOME;
   process.env.DSH_HOME = home;
@@ -53,7 +53,7 @@ async function host(t, { relay = false, config = {}, sessionEvents = [], incompa
   }
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}/remote-session/api/`;
-  return async (action, body = {}) => {
+  const request = async (action, body = {}) => {
     const response = await fetchHttp(base + action, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: Buffer.isBuffer(body) ? body : JSON.stringify(body),
@@ -61,6 +61,8 @@ async function host(t, { relay = false, config = {}, sessionEvents = [], incompa
     });
     return { status: response.status, body: await response.json() };
   };
+  request.raw = (action, init = {}) => fetchHttp(base + action, { ...init, signal: AbortSignal.timeout(10000) });
+  return request;
 }
 
 function relayFetch(onPublish, peers = [peer], results = {}) {
@@ -82,7 +84,8 @@ function relayFetch(onPublish, peers = [peer], results = {}) {
       const message = JSON.parse(init.body);
       const pending = onPublish(message);
       if (pending !== undefined) return pending;
-      const result = results[message.payload.method] ?? (message.payload.method === 'version' ? { version: '1.0.0' } : []);
+      const answer = results[message.payload.method];
+      const result = typeof answer === 'function' ? answer(message.payload.params) : answer ?? (message.payload.method === 'version' ? { version: '1.0.0' } : []);
       const envelope = { from: message.to, type: 'rpc.result', id: message.id, payload: { ok: true, result } };
       const frame = new TextEncoder().encode(`event: message\ndata: ${JSON.stringify(envelope)}\n\n`);
       if (stream) stream.enqueue(frame);
@@ -271,6 +274,60 @@ test('native HTTP uploads preserve binary bodies beyond the ordinary JSON limit'
     assert.equal(response.status, 200);
     assert.deepEqual(Buffer.from(response.body.result.body, 'base64'), bytes);
   }
+});
+
+test('client resource HTTP route forwards revisioned URLs and raw bytes only to the selected online peer', async t => {
+  const bytes = Buffer.alloc(700 * 1024, 0xa5);
+  const calls = [];
+  const released = Promise.withResolvers();
+  t.mock.method(globalThis, 'fetch', relayFetch(message => {
+    if (message.payload.method === 'native') calls.push(message);
+    if (message.payload.params?.operation === 'release') released.resolve();
+  }, [peer], { native: input => {
+    if (input.operation === 'resource-open') return { resourceId: 'snapshot', length: bytes.length, contentType: 'application/javascript' };
+    if (input.operation === 'resource-read') {
+      const chunk = bytes.subarray(input.offset, input.offset + 256 * 1024);
+      return { body: chunk.toString('base64'), next: input.offset + chunk.length };
+    }
+    return {};
+  } }));
+  const request = await host(t, { relay: true });
+  const route = 'resource/remote/plugins/??@fixture/client.js&rev=revision';
+  const response = await request.raw(route);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'application/javascript');
+  assert.equal(response.headers.get('cache-control'), 'private, no-store');
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+  await released.promise;
+  assert.equal(calls[0].payload.params.route, '/plugins/??@fixture/client.js&rev=revision');
+  assert.ok(calls.every(call => call.to === peer.id && call.payload.params.clientId === calls[0].payload.params.clientId));
+  assert.equal(calls.at(-1).payload.params.operation, 'release');
+  const count = calls.length;
+  assert.equal((await request.raw(route, { method: 'POST' })).status, 405);
+  assert.equal((await request.raw('resource/unknown/plugins/file.js')).status, 409);
+  assert.equal(calls.length, count);
+  const denied = await host(t, { relay: true, forbidden: true });
+  assert.equal((await denied.raw(route)).status, 403);
+  assert.equal(calls.length, count);
+});
+
+test('malformed resource chunks abort the response and still release their remote snapshot', async t => {
+  const calls = [];
+  const released = Promise.withResolvers();
+  t.mock.method(globalThis, 'fetch', relayFetch(() => {}, [peer], { native: input => {
+    calls.push(input);
+    if (input.operation === 'release') released.resolve();
+    if (input.operation === 'resource-open') return { resourceId: 'bad', length: 20, contentType: 'application/javascript' };
+    return { body: 'YQ==', next: 19 };
+  } }));
+  const request = await host(t, { relay: true });
+  await assert.rejects(async () => {
+    const response = await request.raw('resource/remote/plugins/??fixture/client.js&rev=revision');
+    await response.arrayBuffer();
+  });
+  await released.promise;
+  assert.equal(calls.at(-1).operation, 'release');
 });
 
 test('oversized ordinary and native bodies return JSON 413 without resetting the socket', async t => {

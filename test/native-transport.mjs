@@ -20,8 +20,12 @@ const coreEntries = ['dsh-remote-session', '@deepseek-ai/dsh-client-ui-workspace
 function fixture(options = {}) {
   const calls = [];
   let disposed = 0;
+  const entries = (options.clientEntries || coreEntries).map(id => ({ id, url: 'plugins/??' + id + '/client.js&rev=fixture', rev: 'fixture' }));
   const gateway = new NativeGateway({
-    clientModules: { graph: () => ({ entries: (options.clientEntries || coreEntries).map(id => ({ id })) }) },
+    clientModules: {
+      graph: () => options.graph || ({ rev: 'fixture', entries, batches: [{ phase: 'application', url: 'plugins/??batch/client.js&rev=fixture', rev: 'fixture', entries: entries.map(e => e.id) }] }),
+      fetchBundle: async request => options.resource ? options.resource(request) : new Response('fixture', { headers: { 'content-type': 'application/javascript' } }),
+    },
     connection: {
       createPeer: () => ({ dispose: async () => { disposed += 1; } }),
       createSharedFetchHandler: () => ({ fetch: async request => {
@@ -41,13 +45,14 @@ function fixture(options = {}) {
     } },
   });
   const nativeCalls = [];
-  const localStorage = storage([['dsh.conversation.same-id', 'local draft']]);
+  const localStorage = storage([['dsh.conversation.same-id', 'local draft'], ['third-party.preference', 'local preference']]);
   let reloaded = false;
   const win = {
     crypto: webcrypto, atob, btoa, document: { baseURI: 'http://localhost/mounted/' },
     sessionStorage: storage([['dsh.remote-session.machine.v1', 'company']]), localStorage,
     location: { reload: () => { reloaded = true; } }, addEventListener: () => {},
     __DSH_TRANSPORT__: options.transport,
+    __ModuleLoader__: { mode: 'queue', pendingQueue: [] },
     fetch: async (url, init) => {
       assert.equal(new URL(url).pathname, '/mounted/remote-session/api/native');
       const input = JSON.parse(init.body);
@@ -85,6 +90,7 @@ test('native probes identify missing host APIs and reject malformed client graph
       [f.gateway.ctx.connection, 'createPeer'], [f.gateway.ctx.connection, 'createSharedFetchHandler'],
       [f.gateway.ctx.typertGateway.wireStream, 'open'], [f.gateway.ctx.typertGateway.wireStream, 'failure'],
       [f.gateway.ctx.clientModules, 'graph'],
+      [f.gateway.ctx.clientModules, 'fetchBundle'],
     ];
     for (const [owner, key] of required) {
       const original = owner[key];
@@ -112,7 +118,7 @@ test('machine switching rejects missing target UI components before changing sel
   } finally { await f.gateway.dispose(); }
 });
 
-test('remote boot excludes unsupported plugins and their dependents before desktop activation', async () => {
+test('remote boot loads the target composition, including remote-only plugins, before desktop activation', async () => {
   const f = fixture({ clientEntries: [...coreEntries, 'dependent-ui', '@deepseek-ai/dsh-client-hmr'],
     transport: { rpc: { call() { throw new Error('local RPC leaked'); } }, streamBaseUrl: 'http://127.0.0.1:9000' } });
   const translation = '@deepseek-ai/dsh-experimental-client-ui-cot-translation';
@@ -125,8 +131,9 @@ test('remote boot excludes unsupported plugins and their dependents before deskt
     f.win.__DSH_BOOT__ = original;
     await f.win.__DSH_BOOT_READY__.resolve();
     await f.win.__DSH_BOOT_READY__.promise;
-    assert.deepEqual(f.win.__DSH_BOOT__.entries.map(e => e.id), coreEntries);
-    assert.deepEqual(f.win.__DSH_BOOT__.batches[0].entries, coreEntries);
+    assert.deepEqual(f.win.__DSH_BOOT__.entries.map(e => e.id), [...coreEntries, 'dependent-ui']);
+    assert.deepEqual(f.win.__DSH_BOOT__.batches[0].entries, [...coreEntries, 'dependent-ui']);
+    assert.ok(f.win.__DSH_BOOT__.entries.every(entry => entry.url.startsWith('http://localhost/mounted/remote-session/api/resource/company/plugins/')));
     assert.equal(original.entries.length, entries.length, 'the local graph must stay intact');
     assert.equal(f.win.__DSH_TRANSPORT__.rpc, undefined);
     assert.equal(f.win.__DSH_TRANSPORT__.streamBaseUrl, 'http://127.0.0.1:9000');
@@ -139,7 +146,7 @@ test('unavailable or incompatible remote boot restores local selection without o
     const f = fixture();
     try {
       if (offline) f.gateway.dispatch = async () => { throw new Error('offline'); };
-      else f.win.__DSH_BOOT__ = { entries: [], batches: [] };
+      else f.gateway.ctx.clientModules.graph = () => ({ entries: [], batches: [] });
       let started = false;
       void f.win.__DSH_BOOT_READY__.promise.then(() => { started = true; });
       await f.win.__DSH_BOOT_READY__.resolve();
@@ -149,6 +156,73 @@ test('unavailable or incompatible remote boot restores local selection without o
       assert.ok(f.win.sessionStorage.getItem('dsh.remote-session.boot-failure.v1'));
     } finally { await f.gateway.dispose(); }
   }
+});
+
+test('remote resources are revisioned registry artifacts, transferred in bounded chunks and isolated by source', async () => {
+  const bytes = Buffer.from('remote-module-\u4e2d\u6587\n'.repeat(100000));
+  const seen = [];
+  const f = fixture({ resource: async request => {
+    seen.push(request.url);
+    return request.url.endsWith('rev=fixture') ? new Response(bytes, { headers: { 'content-type': 'application/javascript' } }) : new Response(null, { status: 404 });
+  } });
+  const input = { clientId: 'assets', operation: 'resource-open', route: '/plugins/??remote-only/client.js&rev=fixture' };
+  try {
+    const resource = await f.gateway.dispatch('home', input);
+    assert.equal(resource.length, bytes.length);
+    assert.equal(resource.contentType, 'application/javascript');
+    const chunks = [];
+    for (let offset = 0; offset < resource.length;) {
+      const chunk = await f.gateway.dispatch('home', { clientId: input.clientId, operation: 'resource-read', resourceId: resource.resourceId, offset });
+      const body = Buffer.from(chunk.body, 'base64');
+      assert.ok(body.length <= 256 * 1024);
+      chunks.push(body); offset = chunk.next;
+    }
+    assert.deepEqual(Buffer.concat(chunks), bytes);
+    await assert.rejects(f.gateway.dispatch('stranger', { clientId: input.clientId, operation: 'resource-read', resourceId: resource.resourceId, offset: 0 }), /expired/);
+    for (const route of ['http://outside/plugins/file', '/api/settings', '/plugins/../../etc/passwd', '/remote-session/api/native']) {
+      await assert.rejects(f.gateway.dispatch('home', { ...input, route }), /Invalid client resource/);
+    }
+    assert.equal(seen.length, 1);
+    await assert.rejects(f.gateway.dispatch('home', { ...input, route: '/plugins/not-advertised' }), error => error.status === 404);
+    await f.gateway.dispatch('home', { clientId: input.clientId, operation: 'resource-close', resourceId: resource.resourceId });
+    await assert.rejects(f.gateway.dispatch('home', { clientId: input.clientId, operation: 'resource-read', resourceId: resource.resourceId, offset: 0 }), /expired/);
+  } finally { await f.gateway.dispose(); }
+});
+
+test('full remote composition rejects older peers and external script URLs before activation', async () => {
+  for (const legacy of [true, false]) {
+    const f = fixture();
+    try {
+      if (legacy) f.gateway.ctx.clientModules.fetchBundle = undefined;
+      else {
+        const graph = f.gateway.ctx.clientModules.graph();
+        graph.entries[0].url = 'https://outside/client.js';
+        f.gateway.ctx.clientModules.graph = () => graph;
+      }
+      let activated = false;
+      void f.win.__DSH_BOOT_READY__.promise.then(() => { activated = true; });
+      await f.win.__DSH_BOOT_READY__.resolve();
+      assert.equal(activated, false);
+      assert.equal(f.reloaded(), true);
+      assert.equal(f.win.sessionStorage.getItem('dsh.remote-session.machine.v1'), 'local');
+    } finally { await f.gateway.dispose(); }
+  }
+});
+
+test('pending resource opens count toward the transfer limit and cannot outlive client release', async () => {
+  const ready = Promise.withResolvers();
+  const f = fixture({ resource: async () => { await ready.promise; return new Response('module'); } });
+  const request = { clientId: 'assets', operation: 'resource-open', route: '/plugins/??fixture/client.js&rev=fixture' };
+  try {
+    const pending = Array.from({ length: 4 }, () => f.gateway.dispatch('home', request));
+    const settled = Promise.allSettled(pending);
+    await assert.rejects(f.gateway.dispatch('home', request), /Too many/);
+    await f.gateway.dispatch('home', { clientId: 'assets', operation: 'release' });
+    ready.resolve();
+    const results = await settled;
+    assert.ok(results.every(result => result.status === 'rejected' && /expired/.test(result.reason.message)));
+    assert.equal(f.gateway.clients.size, 0);
+  } finally { ready.resolve(); await f.gateway.dispose(); }
 });
 
 test('native streams preserve values, uplink, typed failures and close scopes', async () => {
@@ -207,8 +281,13 @@ test('machine selections and drafts remain isolated; returning local preserves i
     f.win.localStorage.setItem('dsh.conversation.same-id', 'company draft');
     assert.equal(f.localStorage.getItem('dsh.conversation.same-id'), 'local draft');
     assert.equal(f.localStorage.getItem('dsh.remote-session.host.company.dsh.conversation.same-id'), 'company draft');
+    assert.equal(f.win.localStorage.getItem('third-party.preference'), null);
+    f.win.localStorage.setItem('third-party.preference', 'remote preference');
+    assert.equal(f.localStorage.getItem('third-party.preference'), 'local preference');
     f.win.localStorage.clear();
     assert.equal(f.localStorage.getItem('dsh.conversation.same-id'), 'local draft');
+    assert.equal(f.localStorage.getItem('third-party.preference'), 'local preference');
+    assert.equal(f.win.localStorage.length, 0);
     await f.win.__DSH_REMOTE_SESSION__.switchMachine('local');
     assert.equal(f.win.sessionStorage.getItem('dsh.remote-session.machine.v1'), 'local');
     assert.equal(f.reloaded(), true);
