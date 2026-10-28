@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Checkbox, Menu, IconDownloadOutlineRegular, IconLinkOutlineRegular, IconRefreshOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Checkbox, Menu, MenuItemButton, Modal, IconCheckOutlineRegular, IconDownloadOutlineRegular, IconLinkOutlineRegular, IconRefreshOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives';
 
 export const name = 'dsh-remote-session';
 export const inject = ['slots'];
@@ -57,16 +57,23 @@ function subscribeMachineState(listener: () => void) {
 const getMachineState = () => machineState;
 function useMachineState() { return React.useSyncExternalStore(subscribeMachineState, getMachineState); }
 
+function runtimeLabel(runtime: unknown) {
+  return runtime === 'desktop' ? '客户端' : runtime === 'web' ? 'Web 端' : '';
+}
+function platformLabel(platform: string) {
+  return ({ win32: 'Windows', darwin: 'macOS', linux: 'Linux' } as Record<string, string>)[platform] || '未知系统';
+}
+
 function currentEnvironment(snapshot: any, error: string) {
   const peerId = (window as any).__DSH_REMOTE_SESSION__?.peerId || 'local';
   const local = peerId === 'local';
   const machine = local ? snapshot?.self : snapshot?.peers?.find((peer: any) => peer.id === peerId);
   const name = machine?.name || (local ? '' : peerId);
   const environment = (local ? '本机' : '远程') + (name ? ' · ' + name : '');
-  const mode = typeof (window as any).dshDesktopBoot?.ready === 'function' ? '客户端' : 'Web 端';
+  const mode = runtimeLabel(machine?.runtime);
   const online = !!snapshot && !error && (local || (snapshot.relay?.connected && machine?.online));
   const state = error ? '状态未知' : !snapshot ? '连接中' : online ? '已连接' : '离线';
-  const label = environment + ' · ' + mode + ' · ' + state;
+  const label = [environment, mode, state].filter(Boolean).join(' · ');
   return { peerId, local, name: name || (local ? '本机' : peerId), environment, mode, online, state, label };
 }
 
@@ -86,7 +93,7 @@ function EnvironmentStatus({ wide = true }: { wide?: boolean }) {
     <StateDot state={online ? 'done' : 'idle'} />
     {wide && <span className="dsh-remote-environment-name">{environment}{!online && snapshot ? ' · ' + state : ''}</span>}
     {!wide && <span>{local ? '本机' : '远程'}</span>}
-    <span className="dsh-remote-environment-mode">{mode}</span>
+    {mode && <span className="dsh-remote-environment-mode">{mode}</span>}
   </div>;
 }
 
@@ -95,6 +102,8 @@ function MachineMenu({ size = 16 }: { size?: number }) {
   const { snapshot, error: stateError } = useMachineState();
   const [error, setError] = React.useState(() => (window as any).__DSH_REMOTE_SESSION__?.bootError || '');
   const [busy, setBusy] = React.useState(false);
+  const [restartTarget, setRestartTarget] = React.useState<any>(null);
+  const [restartingId, setRestartingId] = React.useState('');
   const icon = React.useRef<HTMLSpanElement>(null);
   const [trigger, setTrigger] = React.useState<HTMLButtonElement | null>(null);
   const bridge = (window as any).__DSH_REMOTE_SESSION__;
@@ -113,11 +122,19 @@ function MachineMenu({ size = 16 }: { size?: number }) {
       event.stopImmediatePropagation();
       setOpen(value => !value);
     };
+    const keydown = (event: KeyboardEvent) => {
+      if ((event.key !== 'Enter' && event.key !== ' ') || event.altKey || event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!event.repeat) setOpen(value => !value);
+    };
     button.addEventListener('click', toggle, true);
+    button.addEventListener('keydown', keydown, true);
     button.setAttribute('aria-haspopup', 'menu');
     button.setAttribute('title', '远程会话');
     return () => {
       button.removeEventListener('click', toggle, true);
+      button.removeEventListener('keydown', keydown, true);
       for (const [key, value] of previous) {
         if (value === null) button.removeAttribute(key!);
         else button.setAttribute(key!, value!);
@@ -129,7 +146,7 @@ function MachineMenu({ size = 16 }: { size?: number }) {
   }, [open]);
 
   const choose = async (id: string) => {
-    if (busy) return;
+    if (busy || restartingId) return;
     if (id === selected) { setOpen(false); return; }
     setError('');
     setBusy(true);
@@ -141,28 +158,50 @@ function MachineMenu({ size = 16 }: { size?: number }) {
       setBusy(false);
     }
   };
+  const restartMachine = async (machine: any) => {
+    setRestartTarget(null);
+    setRestartingId(machine.id);
+    setError('');
+    try {
+      const started = await post('restart', { peerId: machine.id });
+      const deadline = Date.now() + 90000;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        let status;
+        try { status = await post('restart/status', { peerId: machine.id }); }
+        catch { continue; }
+        if (status.state === 'failed') throw new Error(status.error || '目标 DSH 重启失败');
+        if (status.bootId && status.bootId !== started.bootId) {
+          await refreshMachineState();
+          if (machine.id === 'local' || machine.id === selected) window.location.reload();
+          return;
+        }
+      }
+      throw new Error('等待 DSH 重新上线超时，请检查目标机器上的服务状态');
+    } catch (failure: any) {
+      setError('重启失败：' + failure.message);
+      setOpen(true);
+    } finally { setRestartingId(''); }
+  };
   const peers = (snapshot?.peers || []).filter((peer: any) => peer.id !== 'local' && peer.id !== snapshot?.self?.id);
-  const items: any[] = [
-    { id: 'local', label: '本机' + (snapshot?.self?.name ? ' · ' + snapshot.self.name : ''), icon: <StateDot state="idle" />, disabled: busy },
-    ...peers.map((peer: any) => ({
-      id: peer.id, label: peer.name + (peer.online ? '' : '（离线）'),
-      icon: <StateDot state={peer.online ? 'done' : 'idle'} />, disabled: busy || !peer.online,
-    })),
-    ...!peers.length ? [{ type: 'label', id: 'empty', text: snapshot ? '暂无远程机器' : '正在读取机器…' }] : [],
-    { type: 'separator', id: 'actions' },
-    { id: '$refresh', label: '刷新机器', icon: <IconRefreshOutlineRegular />, disabled: busy },
-    ...busy ? [{ type: 'label', id: 'busy', text: '正在连接…' }] : [],
-    ...(error || stateError) ? [{ type: 'label', id: 'error', text: error || stateError }] : [],
-  ];
-  return <><style>{`
+  const machines = [{ ...snapshot?.self, id: 'local', online: !!snapshot, name: '本机' + (snapshot?.self?.name ? ' · ' + snapshot.self.name : '') }, ...peers];
+  return <span style={{ display: 'inline-flex' }} onClick={event => event.stopPropagation()}><style>{`
     .dsh-remote-machine-menu { width: 288px; max-width: calc(100vw - 24px); }
+    .dsh-remote-machine-row { display: grid; grid-template-columns: minmax(0, 1fr) 28px 18px; align-items: center; gap: 2px; border-radius: 6px; padding-right: 6px; min-height: 34px; }
+    .dsh-remote-machine-row[data-selected="true"] { background: var(--dsw-alias-interactive-bg-hover); }
+    .dsh-remote-machine-row > div { min-width: 0; }
+    .dsh-remote-machine-row button[role="menuitem"] { width: 100%; min-width: 0; }
+    .dsh-remote-machine-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dsh-remote-machine-restart { display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; }
+    .dsh-remote-machine-restart button { width: 28px; height: 28px; min-width: 28px; padding: 0; }
+    .dsh-remote-machine-note { padding: 6px 10px; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; color: var(--dsw-alias-label-secondary); }
     .dsh-remote-machine-current { display: flex; align-items: center; gap: 5px; margin-left: auto; min-width: 0; max-width: 50%; flex: 0 1 auto; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 18px; }
     .dsh-remote-machine-current-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dsh-remote-machine-current-mode { flex: none; white-space: nowrap; }
   `}</style>{trigger && size === 16 && !current.local && createPortal(
     <span className="dsh-remote-machine-current" title={current.label} data-remote-machine-current={selected}>
       <span className="dsh-remote-machine-current-name">{current.name}</span>
-      <span className="dsh-remote-machine-current-mode">· {current.mode}</span>
+      {current.mode && <span className="dsh-remote-machine-current-mode">· {current.mode}</span>}
     </span>, trigger,
   )}<Menu
     open={open} onClose={() => setOpen(false)} portal autoFocus selectedId={selected}
@@ -171,13 +210,38 @@ function MachineMenu({ size = 16 }: { size?: number }) {
     anchor={<span ref={icon} style={{ display: 'inline-flex' }}>
       <IconLinkOutlineRegular size={size} />
     </span>}
-    items={items}
-    onSelect={id => {
-      if (id !== '$refresh') { void choose(id); return; }
+  >
+    {machines.map(machine => {
+      const disabledReason = !machine.online ? '机器离线' : !machine.restart?.supported
+        ? machine.restart?.reason || '请更新目标机器上的插件并重启 DSH' : '';
+      const restarting = restartingId === machine.id;
+      const title = disabledReason || [restarting ? '正在重启' : '重启 DSH', platformLabel(machine.platform), runtimeLabel(machine.runtime)].filter(Boolean).join(' · ');
+      return <div key={machine.id} className="dsh-remote-machine-row" data-selected={selected === machine.id} data-machine-id={machine.id}>
+        <MenuItemButton current={selected === machine.id} disabled={busy || !!restartingId || !machine.online}
+          icon={<StateDot state={machine.id === 'local' || !machine.online ? 'idle' : 'done'} />} onSelect={() => { void choose(machine.id); }}>
+          <span className="dsh-remote-machine-label">{machine.name}{restarting ? '（重启中）' : !machine.online ? '（离线）' : ''}</span>
+        </MenuItemButton>
+        <span className="dsh-remote-machine-restart" title={title}>
+          <Button size="sm" variant="toolbar" aria-label={'重启 ' + machine.name} title={title}
+            disabled={busy || !!restartingId || !!disabledReason} icon={<IconRefreshOutlineRegular size={14} />}
+            onClick={() => { setOpen(false); setRestartTarget(machine); }} />
+        </span>
+        <span aria-hidden="true">{selected === machine.id && <IconCheckOutlineRegular size={14} />}</span>
+      </div>;
+    })}
+    {!peers.length && <div className="dsh-remote-machine-note">{snapshot ? '暂无远程机器' : '正在读取机器…'}</div>}
+    <MenuItemButton separatorBefore disabled={busy || !!restartingId} icon={<IconRefreshOutlineRegular />} onSelect={() => {
       setError('');
       void refreshMachineState('refresh');
-    }}
-  /></>;
+    }}>刷新机器</MenuItemButton>
+    {busy && <div className="dsh-remote-machine-note">正在连接…</div>}
+    {(error || stateError) && <div role="alert" className="dsh-remote-machine-note">{error || stateError}</div>}
+  </Menu>
+  <Modal open={!!restartTarget} title={'重启 ' + (restartTarget?.name || '') + ' 上的 DSH？'} closeLabel="关闭" onClose={() => setRestartTarget(null)}
+    description={[platformLabel(restartTarget?.platform), runtimeLabel(restartTarget?.runtime)].filter(Boolean).join(' · ') + '。当前正在运行的任务将会中断。'}
+    footer={<><Button variant="outline" onClick={() => setRestartTarget(null)}>取消</Button>
+      <Button variant="primary" icon={<IconRefreshOutlineRegular />} onClick={() => { void restartMachine(restartTarget); }}>重启</Button></>} />
+  </span>;
 }
 
 const syncStorageKey = 'dsh.remote-session.plugin-sync.v1';
@@ -431,11 +495,12 @@ function ConnectionSettings() {
       setMeta(data);
       setForm({ relayUrl: data.relayUrl || '', token: '', instanceId: data.instanceId || '', instanceName: data.instanceName || '' });
       setLoaded(true);
+      if (data.native?.error) setError(data.native.error);
     }, failure => { if (alive) setError(failure.message); }).finally(() => { if (alive) setBusy(false); });
     return () => { alive = false; };
   }, [readAttempt]);
 
-  const mode = typeof (window as any).dshDesktopBoot?.ready === 'function' ? '客户端' : 'Web 端';
+  const mode = runtimeLabel(meta?.runtime);
   const currentDisplayName = form.instanceName || form.instanceId || (meta?.instanceName || meta?.instanceId) || '当前机器';
 
   return <div aria-label="远程会话设置" className="dsh-remote-settings">
@@ -507,7 +572,7 @@ function ConnectionSettings() {
         <div className="dsh-env-badge" title="当前设备身份与运行模式">
           <StateDot state={meta?.relay?.connected ? 'done' : 'idle'} />
           <span className="dsh-env-badge-name">本机 · {currentDisplayName}</span>
-          <span className="dsh-env-badge-mode">· {mode}</span>
+          {mode && <span className="dsh-env-badge-mode">· {mode}</span>}
         </div>
         <Button
           size="sm"
@@ -633,7 +698,9 @@ function ConnectionSettings() {
             try {
               const saved = await post('settings-save', form);
               setMeta(saved); setForm(value => ({ ...value, token: '' }));
-              if (!saved.relay?.connected) {
+              if (saved.native?.error) {
+                setError(saved.native.error);
+              } else if (!saved.relay?.connected) {
                 setError(saved.relay?.lastError || 'relay 尚未连接');
               } else {
                 setSavedSuccess(true);

@@ -33,10 +33,31 @@ cd remote-session-plugin
 
 在 **设置 → 远程会话 → 插件同步** 中选择目标机器，可安装缺少的插件、更新已发布插件和同步启用状态。插件配置、令牌和本地路径不会复制。
 
+## 重启 DSH
+
+机器菜单中每行右侧的重启图标用于重启该机器上的 DSH，点击后确认，正在运行的任务会中断。重启当前连接的实例后，界面等待它重新上线并自动刷新。
+
+插件根据目标实例的系统和启动方式选择操作：Windows、macOS、Linux 桌面端重启应用与 Host；Web 端优先使用所属的 systemd、PM2 或 launchd 服务，否则保留原程序、参数、目录和环境重新启动。只有确认 DSH 是对应服务的主进程才会操作服务；容器、未识别的服务包装器及旧版目标会禁用按钮并显示原因。各端首次安装此功能后需手动重启一次。
+
 ## 安全与常见问题
 
 只把自己的可信设备接入同一个 relay。共享令牌允许访问该 relay 下的所有设备，不要把令牌提交到 Git 或写进公开配置文件。
 
+HTTPS 保护传输，relay 服务器仍可读取转发内容；当前不提供端到端加密。新插件通过 `Authorization` 请求头建立 SSE 连接。升级时先更新 relay，再更新各设备插件；relay 仍兼容旧版客户端，无需更换现有令牌。
+
 - relay 未连接：检查地址是否包含 `/dsh-relay`，并确认两台机器的令牌相同。
 - 看不到另一台机器：确认它已启动 DSH、安装 1.0.0 以上版本插件，并使用相同的地址和令牌。
 - relay 服务未运行：在服务器查看 `sudo journalctl -u dsh-relay -n 100 --no-pager`。
+
+## 开发验证
+
+```powershell
+npm ci
+npm run build
+npm test
+npm run test:native
+```
+
+`test:native` 在临时目录启动两个真实 DSH 实例，通过浏览器验证切机、原生工作区、附件上传、插件同步与远端重启。需要已安装 Windows 版 DeepSeek Harness 和 Chromium；可通过 `DSH_DESKTOP`、`DSH_CHROMIUM` 指定路径。详情见 [测试说明](test/README.md)。
+
+旧 Vendor 方案已[归档](research/legacy-vendor/README.md)，不参与当前构建或测试。

@@ -91,7 +91,9 @@ curl -fsS https://relay.yourdomain.com/dsh-relay/health
 
 返回 `{"ok":true}` 表示 relay 可访问。插件配置中的 Relay 地址要填完整路径，例如 `https://relay.yourdomain.com/dsh-relay`。
 
-Nginx 模板关闭了该路径的访问日志，因为 relay 的长连接地址包含访问令牌。保持 HTTPS，并且只让可信设备使用这个令牌。
+新插件使用 `Authorization: Bearer <token>` 建立 SSE 连接，令牌不进入 URL。relay 为兼容旧客户端仍接受 query 中的令牌，迁移期间保持 Nginx 模板中的 `access_log off`。当请求携带 `Authorization` 时，以请求头为准，不会退回 query 鉴权。
+
+升级顺序：先备份并更新 relay 程序、重启服务，再更新各设备插件。保留现有令牌，不需要重新配对。旧部署可能在 `/health` 泄露实例信息，升级后应确认匿名请求只返回 `{"ok":true}`，包括已有设备在线时。
 
 ## 配置 DSH
 

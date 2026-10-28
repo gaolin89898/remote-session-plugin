@@ -25,13 +25,13 @@ DSH 实例 B（远端，同一插件）── native-gateway 把官方 Gateway �
 
 ## 2. relay HTTP 协议（relay/server.cjs）
 
-认证：除 `GET /health` 外全部要共享令牌 `token`；`GET /v1/stream` 用 query `?id=&token=`，其余 POST body 里带 `token` 字段（`server.cjs:24-27,116-121,148-169`）。
+认证：除 `GET /health` 外全部要共享令牌；当前 `GET /v1/stream?id=...` 使用 `Authorization: Bearer <token>`，relay 兼容旧客户端的 query 令牌。提供请求头时不再回退 query。其余 POST body 里带 `token` 字段。以下行号为历史快照，当前实现以仓库代码为准。
 端口 127.0.0.1:3098，由 nginx 前缀 `/dsh-relay/` 暴露；内存态、不落盘；离线实例 15 分钟后清除（`server.cjs:18-19,172-181`）。
 
 | 端点 | 请求体 | 响应 | 说明 |
 | --- | --- | --- | --- |
 | `GET /health` | — | `{ok:true}` | 健康检查 |
-| `GET /v1/stream?id&token` | — | `text/event-stream` | 每实例一条 SSE；20s 心跳 `: ping`；建立时发 `event: ready`（peers 快照） |
+| `GET /v1/stream?id=...` | `Authorization: Bearer <token>`；兼容旧 query 令牌 | `text/event-stream` | 每实例一条 SSE；20s 心跳 `: ping`；建立时发 `event: ready`（peers 快照） |
 | `POST /v1/register` | `{id,name,sessions?,meta?,previousId?,token}` | `{ok,peers}` | 注册/更新本实例；可声明旧实例 ID 的迁移（server.cjs:65-88） |
 | `POST /v1/index` | `{id,sessions,token}` | `{ok}` | 刷新会话索引，向其他实例广播 `peer.index` |
 | `POST /v1/publish` | `{from,to,type,payload?,id?,token}` | `{ok}` / `409 target_offline` | `to:'*'` 广播；否则定向投递 SSE `message`（server.cjs:99-114） |

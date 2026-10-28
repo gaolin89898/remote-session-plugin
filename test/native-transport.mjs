@@ -78,6 +78,40 @@ test('native unary fetch preserves binary bodies and cancellation target', async
   } finally { await f.gateway.dispose(); }
 });
 
+test('native probes identify missing host APIs and reject malformed client graphs', async () => {
+  const f = fixture();
+  try {
+    const required = [
+      [f.gateway.ctx.connection, 'createPeer'], [f.gateway.ctx.connection, 'createSharedFetchHandler'],
+      [f.gateway.ctx.typertGateway.wireStream, 'open'], [f.gateway.ctx.typertGateway.wireStream, 'failure'],
+      [f.gateway.ctx.clientModules, 'graph'],
+    ];
+    for (const [owner, key] of required) {
+      const original = owner[key];
+      owner[key] = null;
+      assert.equal(f.gateway.status().supported, false);
+      await assert.rejects(f.gateway.dispatch('home', { operation: 'probe' }), error => error.status === 409 && error.message.includes(key));
+      owner[key] = original;
+    }
+    for (const graph of [null, { entries: null }, { entries: [{}] }]) {
+      f.gateway.ctx.clientModules.graph = () => graph;
+      await assert.rejects(f.gateway.dispatch('home', { operation: 'probe' }), error => error.status === 409 && /DSH/.test(error.message));
+    }
+    f.gateway.ctx.clientModules.graph = () => { throw new Error('unavailable'); };
+    await assert.rejects(f.gateway.dispatch('home', { operation: 'probe' }), error => error.status === 409 && /DSH/.test(error.message));
+    assert.equal(f.gateway.clients.size, 0);
+  } finally { await f.gateway.dispose(); }
+});
+
+test('machine switching rejects missing target UI components before changing selection', async () => {
+  const f = fixture({ clientEntries: ['dsh-remote-session'] });
+  try {
+    await assert.rejects(f.win.__DSH_REMOTE_SESSION__.switchMachine('another'), /dsh-client-ui-workspace/);
+    assert.equal(f.win.sessionStorage.getItem('dsh.remote-session.machine.v1'), 'company');
+    assert.equal(f.reloaded(), false);
+  } finally { await f.gateway.dispose(); }
+});
+
 test('remote boot excludes unsupported plugins and their dependents before desktop activation', async () => {
   const f = fixture({ clientEntries: [...coreEntries, 'dependent-ui', '@deepseek-ai/dsh-client-hmr'],
     transport: { rpc: { call() { throw new Error('local RPC leaked'); } }, streamBaseUrl: 'http://127.0.0.1:9000' } });

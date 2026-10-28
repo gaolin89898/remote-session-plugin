@@ -9,14 +9,17 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+fs.mkdirSync(path.join(root, 'research/browser/out'), { recursive: true });
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-native-machines-'));
 const desktop = process.env.DSH_DESKTOP || path.join(process.env.LOCALAPPDATA, 'Programs/DeepSeek Harness');
 const executable = path.join(desktop, 'DeepSeek Harness.exe');
 const cli = path.join(desktop, 'resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js');
 const children = [];
+const hostHomes = [];
 const streams = new Map();
 const peers = new Map();
 const token = randomUUID();
+const restartOnly = process.env.DSH_NATIVE_RESTART_ONLY === '1';
 const fixtureName = 'dsh-sync-fixture';
 const fixtureDir = path.join(scratch, 'registry/package');
 fs.mkdirSync(fixtureDir, { recursive: true });
@@ -24,7 +27,7 @@ const fixtureFiles = {
   'package.json': JSON.stringify({ name: fixtureName, version: '1.0.0', type: 'module', main: 'index.js',
     exports: { '.': './index.js', './package.json': './package.json', './cordis.patch.yml': './cordis.patch.yml' },
     dsh: { bundle: { patch: './cordis.patch.yml' } } }),
-  'index.js': 'export const name = "sync-fixture"; export function apply() {}\nexport const fixtureNonce = ' + JSON.stringify(randomUUID()) + ';\n',
+  'index.js': 'import fs from "node:fs"; import path from "node:path"; export const name = "sync-fixture"; export function apply() { fs.writeFileSync(path.join(process.env.DSH_HOME, "native-test.pid"), String(process.pid)); fs.writeFileSync(path.join(process.env.DSH_HOME, "native-startup.json"), JSON.stringify({ pid: process.pid, argv: process.argv, execArgv: process.execArgv, cwd: process.cwd(), nodeMode: process.env.ELECTRON_RUN_AS_NODE })); }\nexport const fixtureNonce = ' + JSON.stringify(randomUUID()) + ';\n',
   'cordis.patch.yml': '- insert:\n    - id: sync-fixture\n      name: dsh-sync-fixture\n',
 };
 for (const [name, value] of Object.entries(fixtureFiles)) fs.writeFileSync(path.join(fixtureDir, name), value);
@@ -42,7 +45,8 @@ const relay = http.createServer(async (req, res) => {
   }
   if (url.pathname === '/registry/plugin.tgz') { res.writeHead(200, { 'content-type': 'application/octet-stream' }); setTimeout(() => res.end(fixtureTarball), 1500); return; }
   if (url.pathname === '/v1/stream') {
-    if (url.searchParams.get('token') !== token) { res.writeHead(403); res.end(); return; }
+    assert.equal(url.searchParams.has('token'), false, 'relay URLs must not contain credentials');
+    if (req.headers.authorization !== 'Bearer ' + token) { res.writeHead(403); res.end(); return; }
     const id = url.searchParams.get('id');
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     streams.set(id, res);
@@ -56,7 +60,7 @@ const relay = http.createServer(async (req, res) => {
   const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
   const reply = (data, status = 200) => { res.writeHead(status, { 'content-type': 'application/json' }); res.end(JSON.stringify(data)); };
   if (body.token !== token) return reply({ ok: false }, 403);
-  if (url.pathname === '/v1/register') peers.set(body.id, { id: body.id, name: body.name, online: true, sessions: body.sessions });
+  if (url.pathname === '/v1/register') peers.set(body.id, { id: body.id, name: body.name, online: true, sessions: body.sessions, meta: body.meta });
   if (url.pathname === '/v1/index' && peers.has(body.id)) peers.get(body.id).sessions = body.sessions;
   if (url.pathname === '/v1/publish') {
     const target = streams.get(body.to);
@@ -96,19 +100,22 @@ async function dismissPreview() {
 
 async function checkEnvironment(peerId, environment, mode = 'Web 端', state = '已连接') {
   const indicator = page.locator('[data-remote-environment="' + peerId + '"]');
-  await page.getByRole('status', { name: environment + ' · ' + mode + ' · ' + state, exact: true }).waitFor();
+  const label = [environment, mode, state].filter(Boolean).join(' · ');
+  await page.getByRole('status', { name: label, exact: true }).waitFor();
   const bounds = await indicator.boundingBox();
   assert.ok(bounds && bounds.width > 0 && bounds.y + bounds.height <= page.viewportSize().height);
   assert.ok(await indicator.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'environment must fit sidebar');
   assert.ok((await indicator.innerText()).includes(mode));
+  assert.equal(await indicator.locator('.dsh-remote-environment-mode').count(), mode ? 1 : 0);
   if (peerId === 'local') {
     assert.equal(await page.locator('[data-remote-machine-current]').count(), 0, 'local host must not show a machine badge on the entry');
   } else if (await indicator.evaluate(element => !element.classList.contains('dsh-remote-environment-compact'))) {
     const badge = page.getByRole('button', { name: '远程会话', exact: true }).locator('[data-remote-machine-current="' + peerId + '"]');
     await badge.waitFor();
-    assert.equal(await badge.getAttribute('title'), environment + ' · ' + mode + ' · ' + state);
+    assert.equal(await badge.getAttribute('title'), label);
     assert.ok((await badge.innerText()).includes(environment.split(' · ').at(-1)));
     assert.ok((await badge.innerText()).includes(mode));
+    assert.equal(await badge.locator('.dsh-remote-machine-current-mode').count(), mode ? 1 : 0);
     assert.ok(await badge.evaluate(element => {
       const badgeBox = element.getBoundingClientRect();
       const button = element.closest('button');
@@ -122,14 +129,16 @@ async function checkEnvironment(peerId, environment, mode = 'Web 端', state = '
 
 async function boot(id) {
   const home = path.join(scratch, id);
+  hostHomes.push(home);
   fs.mkdirSync(home, { recursive: true });
   console.log('prepare isolated native host:', id);
   runCli(home, ['--profile', 'native-fixture', '--from-default-profile', 'web', '--dump-default-config']);
   runCli(home, ['plugin', '--profile', 'native-fixture', 'add', 'file:' + root]);
-  if (id === 'home') {
+  if (id === 'home' || restartOnly) {
     const manifestPath = path.join(home, 'profiles/native-fixture/package.json');
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    manifest.dsh.profile.bundles.push('@deepseek-ai/dsh-experimental-cot-translation-bundle', fixtureName);
+    if (id === 'home') manifest.dsh.profile.bundles.push('@deepseek-ai/dsh-experimental-cot-translation-bundle');
+    manifest.dsh.profile.bundles.push(fixtureName);
     manifest.dependencies[fixtureName] = '1.0.0';
     const installed = path.join(home, 'profiles/native-fixture/node_modules', fixtureName);
     fs.mkdirSync(installed, { recursive: true });
@@ -161,7 +170,7 @@ async function boot(id) {
   throw new Error('Native fixture host did not become ready: ' + logs.replace(/([?&]token=)[^\s]+/g, '$1<redacted>').slice(-6000));
 }
 
-try {
+async function run() {
   const local = await boot('home');
   const remote = await boot('company');
   browser = await chromium.launch({ headless: true, executablePath: process.env.DSH_CHROMIUM
@@ -172,11 +181,32 @@ try {
     await welcome.getByRole('button', { name: '关闭', exact: true }).click();
   });
   const errors = [];
-  page.on('pageerror', error => errors.push(String(error)));
+  page.on('pageerror', error => { errors.push(String(error)); console.error(error.stack); });
   await page.goto(local.url);
+  if (restartOnly) {
+    await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+    const call = action => page.evaluate(async action => {
+      const response = await fetch('remote-session/api/' + action, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ peerId: 'company' }) });
+      return response.json();
+    }, action);
+    const started = await call('restart');
+    console.log('Restart accepted:', started);
+    assert.equal(started.ok, true);
+    const deadline = Date.now() + 40000;
+    while (Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const current = await call('restart/status');
+      console.log('Restart status:', current);
+      if (current.ok && current.bootId !== started.bootId) { console.log('PASS focused real DSH restart'); return; }
+      if (current.state === 'failed') throw new Error(current.error);
+    }
+    throw new Error('Focused restart timed out');
+  }
   assert.ok(await page.evaluate(() => window.__DSH_BOOT__.entries.some(entry => entry.id === '@deepseek-ai/dsh-experimental-client-ui-cot-translation')),
     'local desktop composition must exercise the optional translation plugin');
   await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+  // Set the shell marker after Web boot so the fixture keeps its Web carrier.
+  await page.evaluate(() => { window.dshDesktopBoot = { ready() {} }; });
   await dismissPreview();
   await checkEnvironment('local', '本机 · 本机测试');
   const footerLayout = await page.locator('[data-remote-environment="local"]').evaluate(indicator => {
@@ -209,11 +239,26 @@ try {
   await page.getByRole('button', { name: '打开侧边栏', exact: true }).click();
   await page.getByRole('button', { name: '远程会话', exact: true }).click();
   await page.getByRole('menuitem', { name: '远端测试', exact: true }).waitFor();
+  const restartButton = page.getByRole('button', { name: '重启 远端测试', exact: true });
+  assert.equal(await restartButton.isEnabled(), true);
+  assert.match(await restartButton.getAttribute('title'), /Windows.*Web 端/);
+  await restartButton.click();
+  const restartDialog = page.getByRole('dialog', { name: '重启 远端测试 上的 DSH？', exact: true });
+  await restartDialog.waitFor();
+  assert.equal(await page.evaluate(() => window.__DSH_REMOTE_SESSION__.peerId), 'local', 'restart must not switch machines');
+  await restartDialog.getByRole('button', { name: '取消', exact: true }).click();
+  assert.deepEqual(errors, [], 'cancelling restart must not activate the original sidebar panel');
+  await page.getByRole('button', { name: '远程会话', exact: true }).click();
   await page.screenshot({ path: path.join(root, 'research/browser/out/native-machine-menu.png') });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.setViewportSize({ width: 640, height: 900 });
   const menu = page.getByRole('menu');
   await menu.waitFor();
+  assert.ok(await menu.locator('[data-machine-id="company"]').evaluate(row => {
+    const buttons = [...row.querySelectorAll('button')].map(button => button.getBoundingClientRect());
+    const bounds = row.getBoundingClientRect();
+    return buttons[0].right <= buttons[1].left && buttons[1].right <= bounds.right;
+  }), 'switching and restart buttons must be separate and fit the menu');
   const rect = await menu.boundingBox();
   assert.ok(rect && rect.x >= 0 && rect.x + rect.width <= 640 && rect.y + rect.height <= 900);
   await page.screenshot({ path: path.join(root, 'research/browser/out/native-machine-menu-narrow-dark.png') });
@@ -226,7 +271,26 @@ try {
   await page.waitForFunction(() => window.__DSH_REMOTE_SESSION__?.peerId === 'company', null, { timeout: 60000 });
   await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
   assert.equal(await page.evaluate(() => window.__DSH_BOOT__.entries.some(entry => entry.id === '@deepseek-ai/dsh-experimental-client-ui-cot-translation')), false);
+  await page.evaluate(() => { window.dshDesktopBoot = { ready() {} }; });
   await dismissPreview();
+  await checkEnvironment('company', '远程 · 远端测试');
+  assert.equal(await page.evaluate(() => typeof window.dshDesktopBoot.ready), 'function');
+  await page.screenshot({ path: path.join(root, 'research/browser/out/environment-desktop-to-web.png'), animations: 'disabled' });
+  let targetRuntime = 'desktop';
+  await page.route('**/remote-session/api/state', async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    data.peers = data.peers.map(peer => peer.id === 'company' ? { ...peer, runtime: targetRuntime, restart: targetRuntime ? peer.restart : null } : peer);
+    await route.fulfill({ response, json: data });
+  });
+  await checkEnvironment('company', '远程 · 远端测试', '客户端');
+  targetRuntime = null;
+  await checkEnvironment('company', '远程 · 远端测试', '');
+  await page.getByRole('button', { name: '远程会话', exact: true }).click();
+  assert.equal(await restartButton.isEnabled(), false);
+  assert.match(await restartButton.getAttribute('title'), /更新目标机器/);
+  await page.keyboard.press('Escape');
+  await page.unroute('**/remote-session/api/state');
   await checkEnvironment('company', '远程 · 远端测试');
   await page.setViewportSize({ width: 640, height: 900 });
   await page.emulateMedia({ colorScheme: 'dark' });
@@ -243,6 +307,10 @@ try {
     await route.fulfill({ response, json: data });
   });
   await checkEnvironment('company', '远程 · 远端测试', 'Web 端', '离线');
+  await page.getByRole('button', { name: '远程会话', exact: true }).click();
+  assert.equal(await restartButton.isEnabled(), false);
+  assert.match(await restartButton.getAttribute('title'), /离线/);
+  await page.keyboard.press('Escape');
   await page.unroute('**/remote-session/api/state');
   await checkEnvironment('company', '远程 · 远端测试');
   await page.locator('[data-row-key^="workspace:"]').first().waitFor({ timeout: 60000 });
@@ -300,13 +368,19 @@ try {
   await page.waitForFunction(() => window.__DSH_REMOTE_SESSION__?.peerId === 'local', null, { timeout: 60000 });
   await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
   assert.ok(await page.evaluate(() => window.__DSH_BOOT__.entries.some(entry => entry.id === '@deepseek-ai/dsh-experimental-client-ui-cot-translation')));
+  await page.evaluate(() => { window.dshDesktopBoot = { ready() {} }; });
   await dismissPreview();
   await checkEnvironment('local', '本机 · 本机测试');
-  await page.evaluate(() => { window.dshDesktopBoot = { ready() {} }; });
+  await page.route('**/remote-session/api/state', async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    data.self.runtime = 'desktop';
+    await route.fulfill({ response, json: data });
+  });
   await checkEnvironment('local', '本机 · 本机测试', '客户端');
-  await page.evaluate(() => { delete window.dshDesktopBoot; });
+  await page.unroute('**/remote-session/api/state');
   await checkEnvironment('local', '本机 · 本机测试');
-  console.log('PASS persistent environment / host switching / web and desktop detection / collapsed sidebar / offline state');
+  console.log('PASS persistent environment / host switching / target runtime despite desktop bridge / collapsed sidebar / offline state');
   await page.locator('[contenteditable="true"]').first().waitFor({ timeout: 30000 });
   assert.equal(await page.getByText('company', { exact: true }).count(), 0);
   assert.equal(await page.evaluate(() => !!window.__DSH_TRANSPORT__?.openStream), false);
@@ -381,6 +455,22 @@ try {
   await page.waitForFunction(() => window.__DSH_REMOTE_SESSION__?.peerId === 'company' && window.__DSH_BOOT__.entries.some(entry => entry.id === '@deepseek-ai/dsh-experimental-client-ui-cot-translation'));
   assert.deepEqual(errors, []);
   console.log('PASS Settings plugin comparison / selected native bundle activation / remote composition after sync / narrow layout');
+  const beforeRestartPid = fs.readFileSync(path.join(remote.home, 'native-test.pid'), 'utf8');
+  await page.getByRole('button', { name: '远程会话', exact: true }).click();
+  await page.getByRole('button', { name: '重启 远端测试', exact: true }).click();
+  const restarted = page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 90000 });
+  await restartDialog.getByRole('button', { name: '重启', exact: true }).click();
+  await restarted;
+  await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+  await dismissPreview();
+  await checkEnvironment('company', '远程 · 远端测试');
+  assert.notEqual(fs.readFileSync(path.join(remote.home, 'native-test.pid'), 'utf8'), beforeRestartPid);
+  assert.deepEqual(errors, []);
+  await page.screenshot({ path: path.join(root, 'research/browser/out/native-after-restart.png'), animations: 'disabled' });
+  console.log('PASS remote restart confirmation / original Web startup arguments / new process / automatic reconnection');
+}
+try {
+  await run();
 } catch (error) {
   await page?.screenshot({ path: path.join(root, 'research/browser/out/native-failure.png') }).catch(() => {});
   throw error;
@@ -388,6 +478,12 @@ try {
   await browser?.close();
   for (const child of children) {
     if (child.exitCode === null) spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+  }
+  for (const home of hostHomes) {
+    try {
+      const pid = Number(fs.readFileSync(path.join(home, 'native-test.pid'), 'utf8'));
+      if (Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid) spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+    } catch { /* fixture was not installed */ }
   }
   for (const stream of streams.values()) stream.end();
   relay.closeAllConnections();

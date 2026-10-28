@@ -115,7 +115,10 @@ function handlePublish(msg, res) {
 
 function handleStream(req, res, url) {
   const id = url.searchParams.get('id') || '';
-  const token = url.searchParams.get('token') || '';
+  const authorization = req.headers.authorization;
+  const token = authorization === undefined
+    ? url.searchParams.get('token') || ''
+    : /^Bearer (.+)$/i.exec(authorization)?.[1] || '';
   if (!validId(id) || !tokenOk(token)) return json(res, 401, { ok: false, error: 'unauthorized' });
   const inst = instances.get(id);
   if (!inst) return json(res, 404, { ok: false, error: 'unknown_instance' });

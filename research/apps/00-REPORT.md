@@ -323,10 +323,10 @@ DSH 实例 B（同一插件）── 插件把官方 Gateway 协议经 relay 透
 
 ### 8.2 安全风险（建议优先处理）
 1. **relay 共享令牌 = 全机控制权**：手机若作为 relay 实例需保存令牌；无设备级撤销/审计；手机丢失场景必须能轮换令牌。
-2. **relay 明文可见**：消息在 relay 侧是明文（TLS 只保护传输），SSE token 在 query 字符串里（nginx 必须关 access log，README 已写）。对比 april-jk 的 E2EE 模型，本插件更适合"自有可信 relay"。
-3. **线上 relay 部署与仓库不一致**：本机 relay `/health` 当前未鉴权返回实例清单（id/name/online/sessions），而仓库版只返回 `{ok:true}`。建议核对线上版本并收紧（避免泄露机器名/会话数量）；同时核对是否有未发布的额外端点。
+2. **relay 明文可见**：消息在 relay 侧是明文（TLS 只保护传输）。当前插件通过 Authorization 请求头传递 SSE 令牌；旧客户端仍可能使用 query，兼容期间保留 Nginx 的 `access_log off`。本插件采用自有可信 relay 的模型，不提供 E2EE。
+3. **线上 relay 部署与仓库不一致（2026-10-28 已修复）**：2026-10-27 调研时，线上 `/health` 未鉴权返回实例清单。2026-10-28 已备份并修补线上程序，公网复核只返回 `{ok:true}`，Bearer 请求头鉴权生效，原有 3 台设备恢复在线。此报告其他数据仍为调研日快照。
 4. **网关暴露面**：Web 壳把"能执行代码的 Host"暴露给手机/公网，必须强鉴权（PIN/配对/设备撤销）+ HTTPS + 限速，优先选安全模型成熟的方案（summer1238 的票据/设备撤销、pocket 的 PIN、vps-remote 的设备审批）。
-5. **公网入口与 relay 关系**：手机浏览器经 Web 壳访问 A，A 再出站连 relay；relay 不需要对公网暴露除 `/health` 之外的写接口（nginx 已按 `/dsh-relay/` 前缀转发）。
+5. **公网入口与 relay 关系**：手机浏览器经 Web 壳访问 A，A 再出站连 relay；参与设备必须能访问 relay 的 `/v1/*` 接口，这些接口必须鉴权。匿名 `/health` 只暴露最小健康状态。
 
 ---
 
@@ -362,7 +362,7 @@ DSH 实例 B（同一插件）── 插件把官方 Gateway 协议经 relay 透
 
 1. **P0 真机验证**：手机浏览器访问现有公网入口时，"远程会话"入口是否可见、切机是否成功、官方 UI 的 `__DSH_BOOT__` 与 `/remote-session/api/*` 是否被 `dsh-vps-remote` 完整透传（架构上应成立，需实测）。
 2. **pocket 的 `ownsHost` 覆盖**：其 transport shim 会把远端页面的 `ownsHost` 强写 true，是否影响远端机器设置页写入正确目标，需实测并决定是否在插件侧做延迟覆盖。
-3. **线上 relay 版本核对**：`/health` 返回实例清单与仓库代码不一致，确认是哪个版本/是否有自定义改动，并收紧权限。
+3. **线上 relay 版本核对（2026-10-28 已完成）**：已完成最小健康响应、Bearer 鉴权及设备重连核对；后续部署继续检查在线设备存在时 `/health` 仍不暴露实例信息。
 4. **sorsama relay transport PoC**：900–1400 行 Kotlin 的估算需用真实代码验证；`pull` 长轮询在移动网络下的体验需压测。
 5. **april-jk Companion 0.2.x 移植**：评估实际改动面（隧道与 DSH 版本解耦）并给上游提 PR，成功后零改码壳就多一个 E2EE 选择。
 6. **路线 C 的审批 RPC 设计**：官方 UI 与 App 同时在线时的 answerer 冲突、单终端语义、超时/取消行为需对照 `docs/subsystems/approval.md` 设计。

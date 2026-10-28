@@ -1,8 +1,13 @@
 {
   "name": "dsh-remote-session",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "node tools/build-machine-client.mjs",
+    "test": "node --test test/host-api.mjs test/native-transport.mjs test/plugin-sync.mjs test/relay-server.mjs test/restart.mjs",
+    "test:native": "node research/browser/native-e2e.mjs"
+  },
   "description": "Switches between local and remote DSH workspaces and sessions, with optional plugin sync; requires your own relay server.",
   "main": "lib/index.js",
   "exports": {
@@ -18,6 +23,8 @@
     "lib/native-gateway.js",
     "lib/native-transport.js",
     "lib/plugin-sync.js",
+    "lib/restart.js",
+    "lib/restart-helper.cjs",
     "relay/server.cjs",
     "relay/README.md",
     "relay/dsh-relay.service",

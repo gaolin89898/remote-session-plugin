@@ -19,7 +19,7 @@ await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
 const port = probe.address().port;
 await new Promise((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
 
-const child = spawn(process.execPath, [path.join(root, 'relay/server.cjs')], {
+const child = spawn(process.execPath, [process.env.DSH_RELAY_TEST_SERVER || path.join(root, 'relay/server.cjs')], {
   env: { ...process.env, TOKEN_FILE: tokenFile, PORT: String(port) },
   stdio: 'ignore',
 });
@@ -50,21 +50,32 @@ try {
   const registered = await post('/v1/register', { token, id: 'home', name: 'Home', sessions: [] });
   assert.equal(registered.status, 200);
 
-  const stream = await requestReady(`${base}/v1/stream?id=home&token=${encodeURIComponent(token)}`);
-  assert.equal(stream.status, 200);
-  const reader = stream.body.getReader();
-  try {
-    const first = await reader.read();
-    assert.match(new TextDecoder().decode(first.value), /event: ready/);
-    const peers = await post('/v1/peers', { token, id: 'office' });
-    assert.equal((await peers.json()).peers[0].online, true);
-  } finally {
-    await reader.cancel();
+  for (const [query, headers] of [['', { authorization: `Bearer ${token}` }], [`&token=${encodeURIComponent(token)}`, {}]]) {
+    const stream = await requestReady(`${base}/v1/stream?id=home${query}`, { headers });
+    assert.equal(stream.status, 200);
+    const reader = stream.body.getReader();
+    try {
+      const first = await reader.read();
+      assert.match(new TextDecoder().decode(first.value), /event: ready/);
+      const peers = await post('/v1/peers', { token, id: 'office' });
+      assert.equal((await peers.json()).peers[0].online, true);
+      assert.deepEqual(await (await requestReady(`${base}/health`)).json(), { ok: true });
+    } finally {
+      await reader.cancel();
+    }
+  }
+  for (const [query, headers] of [
+    ['', {}], ['', { authorization: 'Bearer wrong' }],
+    [`&token=${encodeURIComponent(token)}`, { authorization: 'Bearer wrong' }],
+    [`&token=${encodeURIComponent(token)}`, { authorization: 'Basic invalid' }],
+  ]) {
+    const rejected = await requestReady(`${base}/v1/stream?id=home${query}`, { headers });
+    assert.equal(rejected.status, 401);
   }
 
   const rejected = await post('/v1/register', { token: 'wrong', id: 'attacker' });
   assert.equal(rejected.status, 401);
-  console.log('PASS relay startup, health privacy, shared-token auth, and SSE registration');
+  console.log('PASS relay health privacy, Bearer auth, legacy clients, and invalid credential rejection');
 } finally {
   child.kill('SIGTERM');
   if (child.exitCode === null) await Promise.race([once(child, 'exit'), new Promise(resolve => setTimeout(resolve, 2000))]);

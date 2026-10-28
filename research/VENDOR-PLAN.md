@@ -1,5 +1,7 @@
 # Vendor 计划：把官方会话流组件原样搬进插件
 
+> 历史方案，已停止维护。当前插件通过 DSH 原生协议复用宿主界面，不再加载这里描述的 Vendor 渲染器。相关产物、脚本和旧研究测试已移至 [legacy-vendor/](legacy-vendor/README.md)；下文保留原始过程记录，不代表当前待办或实现。
+
 ## 目标
 远端会话面板使用与官方完全相同的组件树（ChatView / ChatGroupSeat / ChatNodeSeat / node views / DisclosureRow / Markdown），
 不再手绘；数据层用 relay 事件流实现一个本地 `SessionBinding` 垫片。

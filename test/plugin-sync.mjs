@@ -65,6 +65,60 @@ test('target serializes jobs, makes starts idempotent, reports failures separate
   await sync.dispose();
 });
 
+for (const completed of [false, true]) {
+  test(`concurrent starts reuse the same ${completed ? 'completed' : 'running'} job after inventory`, async t => {
+    const inventories = [Promise.withResolvers(), Promise.withResolvers()];
+    const installation = Promise.withResolvers();
+    let reads = 0;
+    let installs = 0;
+    const manager = {
+      listBundles: async () => reads < inventories.length ? inventories[reads++].promise : [],
+      installBundle: async () => { installs++; return installation.promise; },
+    };
+    const sync = new PluginSync({ get: () => manager });
+    t.after(async () => {
+      installation.resolve(applied);
+      await waitDone(sync);
+      await sync.dispose();
+    });
+    const input = { action: 'start', id: 'same-job', bundles: desired([bundle('first')]) };
+    const first = sync.dispatch('home', input);
+    const retry = sync.dispatch('home', input);
+    inventories[0].resolve([]);
+    await first;
+    if (completed) { installation.resolve(applied); await waitDone(sync); }
+    inventories[1].resolve([]);
+    const accepted = await retry;
+    assert.equal(installs, 1);
+    assert.equal(accepted.id, input.id);
+    assert.equal(accepted.state, completed ? 'done' : 'running');
+    assert.deepEqual(accepted, await sync.dispatch('home', { action: 'status', id: input.id }));
+  });
+}
+
+test('concurrent starts from another source cannot replace a completed job', async t => {
+  const inventories = [Promise.withResolvers(), Promise.withResolvers()];
+  let reads = 0;
+  let installs = 0;
+  const manager = {
+    listBundles: async () => reads < inventories.length ? inventories[reads++].promise : [],
+    installBundle: async () => { installs++; return applied; },
+  };
+  const sync = new PluginSync({ get: () => manager });
+  t.after(() => sync.dispose());
+  const input = { action: 'start', id: 'same-job', bundles: desired([bundle('first')]) };
+  const first = sync.dispatch('home', input);
+  const stranger = sync.dispatch('company', input);
+  const rejected = assert.rejects(stranger, /不存在/);
+  inventories[0].resolve([]);
+  await first;
+  await waitDone(sync);
+  inventories[1].resolve([]);
+  await rejected;
+  assert.equal(installs, 1);
+  assert.equal((await sync.dispatch('home', { action: 'status', id: input.id })).state, 'done');
+});
+
 test('cancelling a current installation prevents the remaining plugins from being installed', async () => {
   let finish;
   let installs = 0;
