@@ -21,6 +21,9 @@ const streams = new Map();
 const peers = new Map();
 const token = randomUUID();
 const restartOnly = process.env.DSH_NATIVE_RESTART_ONLY === '1';
+const resourcePerfOnly = process.env.DSH_NATIVE_RESOURCE_PERF_ONLY === '1';
+const relayDelay = Number(process.env.DSH_NATIVE_RELAY_DELAY_MS || 0);
+let resourceReads = 0;
 const fixtureName = 'dsh-sync-fixture';
 const fixtureDir = path.join(scratch, 'registry/package');
 fs.mkdirSync(fixtureDir, { recursive: true });
@@ -37,6 +40,7 @@ assert.equal(spawnSync('tar', ['-czf', fixtureArchive, '-C', path.dirname(fixtur
 const fixtureTarball = fs.readFileSync(fixtureArchive);
 const relay = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/v1/publish' && relayDelay > 0) await new Promise(resolve => setTimeout(resolve, relayDelay));
   if (url.pathname === '/registry/' + fixtureName) {
     const manifest = JSON.parse(fixtureFiles['package.json']);
     res.writeHead(200, { 'content-type': 'application/json' });
@@ -64,6 +68,7 @@ const relay = http.createServer(async (req, res) => {
   if (url.pathname === '/v1/register') peers.set(body.id, { id: body.id, name: body.name, online: true, sessions: body.sessions, meta: body.meta });
   if (url.pathname === '/v1/index' && peers.has(body.id)) peers.get(body.id).sessions = body.sessions;
   if (url.pathname === '/v1/publish') {
+    if (body.payload?.params?.operation === 'resource-read') resourceReads += 1;
     const target = streams.get(body.to);
     if (!target) return reply({ ok: false, error: 'offline' }, 409);
     target.write('event: message\ndata: ' + JSON.stringify(body) + '\n\n');
@@ -264,6 +269,27 @@ async function run() {
   const errors = [];
   page.on('pageerror', error => { errors.push(String(error)); console.error(error.stack); });
   await page.goto(local.url);
+  if (resourcePerfOnly) {
+    await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+    const measurements = [];
+    for (const id of ['company', 'local', 'company']) {
+      const started = performance.now();
+      const before = resourceReads;
+      await Promise.all([
+        page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 60000 }),
+        page.evaluate(id => window.__DSH_REMOTE_SESSION__.switchMachine(id), id),
+      ]);
+      await page.waitForFunction(id => window.__DSH_REMOTE_SESSION__?.peerId === id, id, { timeout: 60000 });
+      await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+      const measurement = { id, ms: Math.round(performance.now() - started), resourceReads: resourceReads - before, relayDelay };
+      measurements.push(measurement);
+      console.log('RESOURCE PERF', JSON.stringify(measurement));
+    }
+    assert.ok(measurements[0].resourceReads > 0, 'the first switch must download remote resources');
+    assert.equal(measurements[2].resourceReads, 0, 'switching back to the same remote revision must reuse cached resources');
+    assert.deepEqual(errors, []);
+    return;
+  }
   if (restartOnly) {
     await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
     const call = action => page.evaluate(async action => {

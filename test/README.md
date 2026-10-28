@@ -19,6 +19,8 @@
 
 只检查真实 DSH 实例重启时，可设置 `DSH_NATIVE_RESTART_ONLY=1` 后运行 `npm run test:native`。
 
+只测切换资源性能时，可设置 `DSH_NATIVE_RESOURCE_PERF_ONLY=1` 后运行 `npm run test:native`；可同时设置 `DSH_NATIVE_RELAY_DELAY_MS=75`，为每次中转转发增加 75 毫秒延迟。测试输出首次切到远端、切回本机、再次切到远端的耗时及资源分块请求数，并验证第二次切到相同远端版本时直接复用缓存。该模式不启用浏览器请求拦截，以保留真实 HTTP 缓存行为。
+
 每次升级 DSH 都应运行双实例验证，并记录实际版本。离线能力检查只验证 API 与组件是否存在，不能保证不同版本的内部协议始终兼容。
 
 2026-10-28 验证：插件 `1.2.2`，DSH `0.2.1-rc.3`，46 项自动测试与真实双实例浏览器验证通过，包含远端独有插件、同名插件的不同客户端版本、原生 API 和经过真实 DSH 鉴权的插件 HTTP 路由（含 `/dsh-market/*`）读写与本机隔离，以及 Windows 上真实 DSH Web 实例的远程重启、进程更换和自动重连。双实例插件 HTTP 用例使用隔离测试插件，不安装或修改用户现有插件市场。验证待部署的 relay 文件时，可将 `DSH_RELAY_TEST_SERVER` 设置为其绝对路径后运行 `node test/relay-server.mjs`；该测试使用临时令牌与本机端口。

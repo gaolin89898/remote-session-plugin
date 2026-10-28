@@ -90,7 +90,7 @@ function relayFetch(onPublish, peers = [peer], results = {}) {
       const pending = onPublish(message);
       if (pending !== undefined) return pending;
       const answer = results[message.payload.method];
-      const result = typeof answer === 'function' ? answer(message.payload.params) : answer ?? (message.payload.method === 'version' ? { version: '1.0.0' } : []);
+      const result = typeof answer === 'function' ? await answer(message.payload.params) : answer ?? (message.payload.method === 'version' ? { version: '1.0.0' } : []);
       const envelope = { from: message.to, type: 'rpc.result', id: message.id, payload: { ok: true, result } };
       const frame = new TextEncoder().encode(`event: message\ndata: ${JSON.stringify(envelope)}\n\n`);
       if (stream) stream.enqueue(frame);
@@ -333,6 +333,81 @@ test('malformed resource chunks abort the response and still release their remot
   });
   await released.promise;
   assert.equal(calls.at(-1).operation, 'release');
+});
+
+test('resource reads overlap within a bounded window and preserve bytes despite out-of-order replies', async t => {
+  const chunkSize = 256 * 1024;
+  const bytes = Buffer.alloc(chunkSize * 12 + 37);
+  for (let index = 0; index < bytes.length; index++) bytes[index] = index % 251;
+  let active = 0;
+  let maximum = 0;
+  const completed = [];
+  const released = Promise.withResolvers();
+  t.mock.method(globalThis, 'fetch', relayFetch(() => {}, [peer], { native: async input => {
+    if (input.operation === 'release') { released.resolve(); return {}; }
+    if (input.operation === 'resource-open') return { resourceId: 'parallel', length: bytes.length, chunkSize, contentType: 'application/javascript', immutable: true };
+    active += 1;
+    maximum = Math.max(maximum, active);
+    await new Promise(resolve => setTimeout(resolve, input.offset % (4 * chunkSize) === 0 ? 30 : 1));
+    active -= 1;
+    completed.push(input.offset);
+    const chunk = bytes.subarray(input.offset, input.offset + chunkSize);
+    return { body: chunk.toString('base64'), next: input.offset + chunk.length };
+  } }));
+  const request = await host(t, { relay: true });
+  const response = await request.raw('resource/remote/plugins/??fixture/client.js&rev=parallel');
+  assert.equal(response.headers.get('cache-control'), 'private, max-age=31536000, immutable');
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+  await released.promise;
+  assert.equal(maximum, 4);
+  assert.notEqual(completed[0], 0, 'the first chunk must finish after a prefetched chunk');
+  assert.equal(completed.length, 13);
+});
+
+test('resource caching requires both a versioned URL and an immutable upstream artifact', async t => {
+  let immutable = true;
+  t.mock.method(globalThis, 'fetch', relayFetch(() => {}, [peer], { native: input => {
+    if (input.operation === 'resource-open') return { resourceId: 'cache', length: 0, chunkSize: 256 * 1024, contentType: 'application/javascript', immutable };
+    return {};
+  } }));
+  const request = await host(t, { relay: true });
+  const first = await request.raw('resource/remote/plugins/fixture/client.js?rev=first');
+  assert.equal(first.headers.get('cache-control'), 'private, max-age=31536000, immutable');
+  const changed = await request.raw('resource/remote/plugins/fixture/client.js?rev=changed');
+  assert.notEqual(first.url, changed.url);
+  assert.equal(changed.headers.get('cache-control'), first.headers.get('cache-control'));
+  assert.equal((await request.raw('resource/remote/plugins/fixture/client.js')).headers.get('cache-control'), 'private, no-store');
+  immutable = false;
+  assert.equal((await request.raw('resource/remote/plugins/fixture/client.js?rev=mutable')).headers.get('cache-control'), 'private, no-store');
+});
+
+test('failed prefetched reads release the snapshot and observe other pending rejections', async t => {
+  const chunkSize = 256 * 1024;
+  const released = Promise.withResolvers();
+  const finished = Promise.withResolvers();
+  let reads = 0;
+  t.mock.method(globalThis, 'fetch', relayFetch(message => {
+    const input = message.payload.params;
+    if (input?.operation === 'resource-read') {
+      return new Promise((resolve, reject) => setTimeout(() => {
+        reads += 1;
+        if (reads === 4) finished.resolve();
+        reject(new Error('prefetch failed'));
+      }, input.offset === 0 ? 1 : 30));
+    }
+  }, [peer], { native: input => {
+    if (input.operation === 'resource-open') return { resourceId: 'failure', length: 4 * chunkSize, chunkSize, contentType: 'application/javascript' };
+    if (input.operation === 'release') released.resolve();
+    return {};
+  } }));
+  const request = await host(t, { relay: true });
+  await assert.rejects(async () => {
+    const response = await request.raw('resource/remote/plugins/fixture/client.js?rev=failed');
+    await response.arrayBuffer();
+  });
+  await released.promise;
+  await finished.promise;
+  assert.equal(reads, 4);
 });
 
 test('oversized ordinary and native bodies return JSON 413 without resetting the socket', async t => {

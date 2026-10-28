@@ -12,6 +12,8 @@
 
 在每台 DSH 上安装插件并重启。完整界面切换需要两端都安装 **1.2.2 或更新版本**；旧版目标会提示升级。
 
+启用界面资源缓存和并行下载以加快机器切换，需要两端都更新到 **1.2.3 或更新版本并重启 DSH**，无需更新 relay。
+
 ```bat
 git clone https://github.com/gaolin89898/remote-session-plugin.git
 cd remote-session-plugin

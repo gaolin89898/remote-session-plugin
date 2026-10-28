@@ -320,13 +320,17 @@ test('remote resources are revisioned registry artifacts, transferred in bounded
   const seen = [];
   const f = fixture({ resource: async request => {
     seen.push(request.url);
-    return request.url.endsWith('rev=fixture') ? new Response(bytes, { headers: { 'content-type': 'application/javascript' } }) : new Response(null, { status: 404 });
+    return request.url.endsWith('rev=fixture') ? new Response(bytes, { headers: {
+      'content-type': 'application/javascript', 'cache-control': 'public, max-age=31536000, immutable',
+    } }) : new Response(null, { status: 404 });
   } });
   const input = { clientId: 'assets', operation: 'resource-open', route: '/plugins/??remote-only/client.js&rev=fixture' };
   try {
     const resource = await f.gateway.dispatch('home', input);
     assert.equal(resource.length, bytes.length);
     assert.equal(resource.contentType, 'application/javascript');
+    assert.equal(resource.chunkSize, 256 * 1024);
+    assert.equal(resource.immutable, true);
     const chunks = [];
     for (let offset = 0; offset < resource.length;) {
       const chunk = await f.gateway.dispatch('home', { clientId: input.clientId, operation: 'resource-read', resourceId: resource.resourceId, offset });
