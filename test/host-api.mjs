@@ -33,9 +33,14 @@ async function host(t, { relay = false, config = {}, sessionEvents = [], incompa
     },
     on() { return () => {}; },
     get(name) { if (name === 'profileContext') return { name: profile }; },
-    webServer: { register(route) { handler = route.handler; return () => {}; } },
+    webServer: {
+      register(route) { handler = route.handler; return () => {}; },
+      match: () => null,
+      getOrigin: () => 'http://127.0.0.1:' + server.address().port,
+    },
     sessionController: { list: async () => ({ items: [] }) },
     connection: {
+      authenticatedUrl: url => url,
       requestRejection: () => forbidden ? 'forbidden' : undefined,
       createPeer: () => ({ dispose: async () => {} }),
       createSharedFetchHandler: () => ({ fetch: async request => new Response(await request.arrayBuffer()) }),

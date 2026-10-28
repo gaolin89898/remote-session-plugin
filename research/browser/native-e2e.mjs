@@ -130,10 +130,12 @@ async function checkEnvironment(peerId, environment, mode = 'Web 端', state = '
 
 function installSettingsFixture(home, id, plugin, label) {
   const version = id === 'home' ? '1.0.0' : '2.0.0';
+  const httpPrefix = plugin === 'dsh-settings-fixture' ? 'dsh-market/' : plugin + '/';
   const source = path.join(scratch, 'fixture-packages', id, plugin);
   const installed = source;
   fs.mkdirSync(installed, { recursive: true });
   fs.writeFileSync(path.join(home, plugin + '.json'), JSON.stringify({ value: id + '-initial' }));
+  fs.writeFileSync(path.join(home, plugin + '-http.json'), JSON.stringify({ value: id + '-http-initial', installed: [id + '-only-plugin'] }));
   fs.writeFileSync(path.join(installed, 'package.json'), JSON.stringify({
     name: plugin, version, type: 'module', main: 'index.js',
     exports: { '.': './index.js', './client': './client.js', './package.json': './package.json', './cordis.patch.yml': './cordis.patch.yml' },
@@ -143,7 +145,7 @@ function installSettingsFixture(home, id, plugin, label) {
   fs.writeFileSync(path.join(installed, 'index.js'), `
     import fs from 'node:fs'; import path from 'node:path';
     export const name = ${JSON.stringify(plugin)};
-    export const inject = ['connection'];
+    export const inject = ['connection', 'webServer'];
     export function apply(ctx) {
       const file = path.join(process.env.DSH_HOME, name + '.json');
       ctx.connection.fetch.register({ path: '/api/' + name, methods: ['GET', 'POST'], requestBody: 'buffered',
@@ -152,6 +154,20 @@ function installSettingsFixture(home, id, plugin, label) {
           return Response.json(JSON.parse(fs.readFileSync(file, 'utf8')));
         }
       });
+      const httpFile = path.join(process.env.DSH_HOME, name + '-http.json');
+      ctx.webServer.register({ kind: 'prefix', path: '/' + ${JSON.stringify(httpPrefix.slice(0, -1))}, async handler(req, res) {
+        const rejection = ctx.connection.requestRejection(req);
+        if (rejection || (req.method === 'POST' && req.headers.origin !== ctx.webServer.getOrigin())) {
+          res.writeHead(403); res.end('forbidden'); return;
+        }
+        const state = JSON.parse(fs.readFileSync(httpFile, 'utf8'));
+        if (req.method === 'POST') {
+          const chunks = []; for await (const chunk of req) chunks.push(chunk);
+          state.value = JSON.parse(Buffer.concat(chunks)).value;
+          fs.writeFileSync(httpFile, JSON.stringify(state));
+        }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(state));
+      } });
     }
   `);
   fs.writeFileSync(path.join(installed, 'client.js'), `
@@ -161,14 +177,25 @@ function installSettingsFixture(home, id, plugin, label) {
       function Settings() {
         const [value, setValue] = React.useState('');
         const [saved, setSaved] = React.useState(false);
+        const [httpValue, setHttpValue] = React.useState('');
+        const [installed, setInstalled] = React.useState([]);
+        const [httpSaved, setHttpSaved] = React.useState(false);
         React.useEffect(() => { fetch('api/' + name).then(r => r.json()).then(r => setValue(r.value)); }, []);
+        React.useEffect(() => { fetch(${JSON.stringify(httpPrefix)} + 'installed').then(r => r.json()).then(r => { setHttpValue(r.value); setInstalled(r.installed); }); }, []);
         return React.createElement('section', { 'aria-label': name },
           React.createElement('p', null, 'Client ' + ${JSON.stringify(version)}),
           React.createElement('input', { 'aria-label': name + ' value', value, onChange: e => { setValue(e.target.value); setSaved(false); } }),
           React.createElement('button', { onClick: async () => {
             await fetch('api/' + name, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value }) });
             setSaved(true);
-          } }, 'Save fixture'), saved && React.createElement('output', null, 'Saved fixture'));
+          } }, 'Save fixture'), saved && React.createElement('output', null, 'Saved fixture'),
+          React.createElement('p', null, 'Installed: ' + installed.join(', ')),
+          React.createElement('input', { 'aria-label': name + ' HTTP value', value: httpValue, onChange: e => { setHttpValue(e.target.value); setHttpSaved(false); } }),
+          React.createElement('button', { onClick: async () => {
+            const response = await fetch(${JSON.stringify(httpPrefix)} + 'settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ value: httpValue }) });
+            if (!response.ok) throw new Error('HTTP fixture save failed: ' + response.status);
+            setHttpSaved(true);
+          } }, 'Save HTTP fixture'), httpSaved && React.createElement('output', null, 'Saved HTTP fixture'));
       }
       return { name, inject: ['slots'], apply(ctx) {
         ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: name, order: 95, label: () => ${JSON.stringify(label)} }, Settings));
@@ -334,17 +361,24 @@ async function run() {
   const sharedSettings = remoteSettings.getByRole('region', { name: 'dsh-settings-fixture', exact: true });
   await sharedSettings.getByText('Client 2.0.0', { exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('input[aria-label="dsh-settings-fixture value"]')?.value === 'company-initial');
-  await sharedSettings.getByRole('textbox').fill('remote-updated');
+  await sharedSettings.getByLabel('dsh-settings-fixture value', { exact: true }).fill('remote-updated');
   await sharedSettings.getByRole('button', { name: 'Save fixture', exact: true }).click();
   await sharedSettings.getByText('Saved fixture', { exact: true }).waitFor();
   assert.equal(JSON.parse(fs.readFileSync(path.join(remote.home, 'dsh-settings-fixture.json'), 'utf8')).value, 'remote-updated');
   assert.equal(JSON.parse(fs.readFileSync(path.join(local.home, 'dsh-settings-fixture.json'), 'utf8')).value, 'home-initial');
+  await sharedSettings.getByText('Installed: company-only-plugin', { exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('input[aria-label="dsh-settings-fixture HTTP value"]')?.value === 'company-http-initial');
+  await sharedSettings.getByLabel('dsh-settings-fixture HTTP value', { exact: true }).fill('remote-http-updated');
+  await sharedSettings.getByRole('button', { name: 'Save HTTP fixture', exact: true }).click();
+  await sharedSettings.getByText('Saved HTTP fixture', { exact: true }).waitFor();
+  assert.equal(JSON.parse(fs.readFileSync(path.join(remote.home, 'dsh-settings-fixture-http.json'), 'utf8')).value, 'remote-http-updated');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(local.home, 'dsh-settings-fixture-http.json'), 'utf8')).value, 'home-http-initial');
   await remoteSettings.getByRole('button', { name: '远端独有插件', exact: true }).click();
   await remoteSettings.getByRole('region', { name: 'dsh-remote-ui-fixture', exact: true }).getByText('Client 2.0.0', { exact: true }).waitFor();
   await page.screenshot({ path: path.join(root, 'research/browser/out/remote-plugin-settings.png') });
   await page.keyboard.press('Escape');
   await remoteSettings.waitFor({ state: 'hidden' });
-  console.log('PASS target-only plugin UI / target client version / target settings read and persistence / local settings unchanged');
+  console.log('PASS target-only plugin UI / target client version / native API and authenticated plugin HTTP reads and persistence / local settings unchanged');
   assert.equal(await page.evaluate(() => typeof window.dshDesktopBoot.ready), 'function');
   await page.screenshot({ path: path.join(root, 'research/browser/out/environment-desktop-to-web.png'), animations: 'disabled' });
   let targetRuntime = 'desktop';
@@ -446,6 +480,8 @@ async function run() {
   await localSettings.getByRole('button', { name: '配置测试', exact: true }).click();
   await localSettings.getByText('Client 1.0.0', { exact: true }).waitFor();
   await page.waitForFunction(() => document.querySelector('input[aria-label="dsh-settings-fixture value"]')?.value === 'home-initial');
+  await localSettings.getByText('Installed: home-only-plugin', { exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('input[aria-label="dsh-settings-fixture HTTP value"]')?.value === 'home-http-initial');
   assert.equal(await localSettings.getByRole('button', { name: '远端独有插件', exact: true }).count(), 0);
   await page.keyboard.press('Escape');
   await localSettings.waitFor({ state: 'hidden' });

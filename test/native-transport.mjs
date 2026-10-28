@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { webcrypto } from 'node:crypto';
+import http from 'node:http';
+import { once } from 'node:events';
 import { NativeGateway } from '../lib/native-gateway.js';
 import { installNativeTransport } from '../lib/native-transport.js';
 
@@ -22,11 +24,16 @@ function fixture(options = {}) {
   let disposed = 0;
   const entries = (options.clientEntries || coreEntries).map(id => ({ id, url: 'plugins/??' + id + '/client.js&rev=fixture', rev: 'fixture' }));
   const gateway = new NativeGateway({
+    webServer: {
+      getOrigin: () => options.origin || 'http://127.0.0.1:1',
+      match: options.match || (pathname => pathname.startsWith('/dsh-market/') ? { kind: 'prefix', path: '/dsh-market/' } : null),
+    },
     clientModules: {
       graph: () => options.graph || ({ rev: 'fixture', entries, batches: [{ phase: 'application', url: 'plugins/??batch/client.js&rev=fixture', rev: 'fixture', entries: entries.map(e => e.id) }] }),
       fetchBundle: async request => options.resource ? options.resource(request) : new Response('fixture', { headers: { 'content-type': 'application/javascript' } }),
     },
     connection: {
+      authenticatedUrl: url => url + '?token=private-launch-token',
       createPeer: () => ({ dispose: async () => { disposed += 1; } }),
       createSharedFetchHandler: () => ({ fetch: async request => {
         const body = new Uint8Array(await request.arrayBuffer());
@@ -45,16 +52,20 @@ function fixture(options = {}) {
     } },
   });
   const nativeCalls = [];
+  const localCalls = [];
   const localStorage = storage([['dsh.conversation.same-id', 'local draft'], ['third-party.preference', 'local preference']]);
   let reloaded = false;
   const win = {
-    crypto: webcrypto, atob, btoa, document: { baseURI: 'http://localhost/mounted/' },
+    crypto: webcrypto, atob, btoa, document: { baseURI: options.baseURI || 'http://localhost/mounted/' },
     sessionStorage: storage([['dsh.remote-session.machine.v1', 'company']]), localStorage,
     location: { reload: () => { reloaded = true; } }, addEventListener: () => {},
     __DSH_TRANSPORT__: options.transport,
     __ModuleLoader__: { mode: 'queue', pendingQueue: [] },
     fetch: async (url, init) => {
-      assert.equal(new URL(url).pathname, '/mounted/remote-session/api/native');
+      if (new URL(url).pathname !== new URL('remote-session/api/native', win.document.baseURI).pathname) {
+        localCalls.push(String(url));
+        return Response.json({ machine: 'local' });
+      }
       const input = JSON.parse(init.body);
       nativeCalls.push(input);
       const result = await gateway.dispatch('home', input);
@@ -62,8 +73,152 @@ function fixture(options = {}) {
     },
   };
   installNativeTransport(win);
-  return { win, gateway, localStorage, calls, nativeCalls, disposed: () => disposed, reloaded: () => reloaded };
+  return { win, gateway, localStorage, calls, nativeCalls, localCalls, disposed: () => disposed, reloaded: () => reloaded };
 }
+
+async function httpFixture(t, handler, options = {}) {
+  const seen = [];
+  const failures = [];
+  const server = http.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      seen.push(url.pathname);
+      if (url.pathname === '/') {
+        assert.equal(url.searchParams.get('token'), 'private-launch-token');
+        res.writeHead(303, { 'set-cookie': 'dsh-auth=target-private; HttpOnly; SameSite=Strict; Path=/', location: '/' });
+        res.end();
+        return;
+      }
+      assert.equal(req.headers.cookie, 'dsh-auth=target-private');
+      assert.equal(req.headers.authorization, undefined);
+      assert.equal(req.headers.origin, 'http://127.0.0.1:' + server.address().port);
+      await handler(req, res);
+    } catch (error) { failures.push(error); res.writeHead(500); res.end(); }
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const f = fixture({ ...options, origin: 'http://127.0.0.1:' + server.address().port });
+  t.after(async () => {
+    await f.gateway.dispose();
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+    assert.deepEqual(failures, []);
+  });
+  return { ...f, seen };
+}
+
+test('plugin HTTP reads and writes target the selected host without exposing its authentication', async t => {
+  let enabled = true;
+  const f = await httpFixture(t, async (req, res) => {
+    if (req.method === 'POST') {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      enabled = JSON.parse(Buffer.concat(chunks)).enabled;
+    }
+    res.writeHead(200, { 'content-type': 'application/json', 'set-cookie': 'plugin-secret=private' });
+    res.end(JSON.stringify({ machine: 'company', plugins: ['remote-only'], enabled, query: req.url.split('?')[1] }));
+  });
+  const first = await f.win.fetch('/dsh-market/installed?tab=installed', {
+    headers: { cookie: 'local-cookie', authorization: 'Bearer local-token' },
+  });
+  assert.deepEqual(await first.json(), { machine: 'company', plugins: ['remote-only'], enabled: true, query: 'tab=installed' });
+  assert.equal(first.headers.has('set-cookie'), false);
+  const updated = await f.win.fetch('dsh-market/toggle', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ enabled: false }),
+  });
+  assert.equal((await updated.json()).enabled, false);
+  assert.equal(enabled, false);
+  assert.deepEqual(f.seen, ['/', '/dsh-market/installed', '/dsh-market/toggle']);
+  assert.equal(f.localCalls.length, 0);
+  assert.ok(f.nativeCalls.every(call => call.peerId === 'company'));
+  assert.ok(!JSON.stringify(f.nativeCalls).includes('target-private'));
+  assert.ok(!JSON.stringify(f.nativeCalls).includes('private-launch-token'));
+  assert.equal([...f.gateway.clients.values()][0].streams.size, 0);
+});
+
+test('registered HTTP routes support desktop URLs while machine controls and external fetch stay local', async t => {
+  const f = await httpFixture(t, (_req, res) => res.end('remote'), {
+    baseURI: 'dsh-app://app/', match: pathname => pathname === '/another-plugin/settings' ? { path: pathname } : null,
+  });
+  assert.equal(await (await f.win.fetch('another-plugin/settings')).text(), 'remote');
+  assert.equal((await (await f.win.fetch('dsh-app://app/remote-session/api/state')).json()).machine, 'local');
+  assert.equal((await (await f.win.fetch('https://external.example/catalog')).json()).machine, 'local');
+  assert.deepEqual(f.localCalls, ['dsh-app://app/remote-session/api/state', 'https://external.example/catalog']);
+  const probe = await f.gateway.dispatch('home', { operation: 'probe' });
+  assert.equal(probe.httpProtocol, 1);
+  f.gateway.dispatch = async () => ({ ...probe, httpProtocol: undefined });
+  await assert.rejects(f.win.__DSH_REMOTE_SESSION__.switchMachine('older'), /1\.2\.2/);
+  assert.equal(f.reloaded(), false);
+});
+
+test('plugin HTTP refuses unregistered routes and other services, and never follows redirects', async t => {
+  const f = await httpFixture(t, (_req, res) => {
+    res.writeHead(302, { location: '/api/private', 'set-cookie': 'redirect-secret=private' });
+    res.end();
+  });
+  const input = { operation: 'http-open', clientId: 'http-test', streamId: 'http-stream', method: 'GET' };
+  for (const route of ['http://external/dsh-market/installed', '//external/dsh-market/installed', '/api/settings',
+    '/', '/index.html', '/plugins/foo', '/assets/foo', '/connect', '/remote-session/api/native', '/dsh-market/../api/private']) {
+    await assert.rejects(f.gateway.dispatch('home', { ...input, route }), /Invalid plugin HTTP route/);
+  }
+  await assert.rejects(f.win.fetch('/unknown-plugin/settings'), error => error.status === 404);
+  f.gateway.ctx.webServer.match = () => ({ path: '/' });
+  await assert.rejects(f.win.fetch('/fallback'), error => error.status === 404);
+  f.gateway.ctx.webServer.match = () => ({ path: '/dsh-market/' });
+  const response = await f.win.fetch('/dsh-market/redirect');
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.has('location'), false);
+  assert.equal(response.headers.has('set-cookie'), false);
+  await response.text();
+  assert.deepEqual(f.seen, ['/', '/dsh-market/redirect']);
+});
+
+test('plugin HTTP streams large binary responses and preserves empty and error responses', async t => {
+  const bytes = Buffer.from(Array.from({ length: 1500000 }, (_, index) => index % 256));
+  const f = await httpFixture(t, (req, res) => {
+    if (req.url.endsWith('empty')) { res.writeHead(204); res.end(); return; }
+    if (req.url.endsWith('missing')) { res.writeHead(404); res.end('missing remotely'); return; }
+    res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': bytes.length });
+    res.end(bytes);
+  });
+  const response = await f.win.fetch('/dsh-market/export');
+  assert.equal(response.headers.has('content-length'), false);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
+  assert.ok(f.nativeCalls.filter(call => call.operation === 'pull').length > 1);
+  for (const [route, method, status] of [['export', 'HEAD', 200], ['empty', 'GET', 204]]) {
+    const empty = await f.win.fetch('/dsh-market/' + route, { method });
+    assert.equal(empty.status, status);
+    assert.equal(empty.body, null);
+  }
+  const missing = await f.win.fetch('/dsh-market/missing');
+  assert.equal(missing.status, 404);
+  assert.equal(await missing.text(), 'missing remotely');
+});
+
+test('plugin HTTP returns headers before completion and cancels pending remote reads', { timeout: 10000 }, async t => {
+  const closed = [];
+  const f = await httpFixture(t, (req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain' });
+    res.write('started');
+    res.on('close', () => closed.push(req.url));
+  });
+  for (const mode of ['abort', 'cancel']) {
+    const abort = new AbortController();
+    const response = await f.win.fetch('/dsh-market/slow-' + mode, { signal: abort.signal });
+    const reader = response.body.getReader();
+    assert.equal(new TextDecoder().decode((await reader.read()).value), 'started');
+    const pending = reader.read();
+    if (mode === 'abort') {
+      const rejected = assert.rejects(pending, error => error.name === 'AbortError');
+      abort.abort();
+      await rejected;
+    } else { await reader.cancel(); assert.equal((await pending).done, true); }
+  }
+  const deadline = Date.now() + 2000;
+  while (closed.length < 2 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+  assert.deepEqual(closed.sort(), ['/dsh-market/slow-abort', '/dsh-market/slow-cancel']);
+  assert.equal([...f.gateway.clients.values()][0].streams.size, 0);
+});
 
 test('native unary fetch preserves binary bodies and cancellation target', async () => {
   const f = fixture();
@@ -91,6 +246,8 @@ test('native probes identify missing host APIs and reject malformed client graph
       [f.gateway.ctx.typertGateway.wireStream, 'open'], [f.gateway.ctx.typertGateway.wireStream, 'failure'],
       [f.gateway.ctx.clientModules, 'graph'],
       [f.gateway.ctx.clientModules, 'fetchBundle'],
+      [f.gateway.ctx.webServer, 'match'], [f.gateway.ctx.webServer, 'getOrigin'],
+      [f.gateway.ctx.connection, 'authenticatedUrl'],
     ];
     for (const [owner, key] of required) {
       const original = owner[key];
