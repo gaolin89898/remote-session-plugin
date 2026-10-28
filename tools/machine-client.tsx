@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Checkbox, Menu, MenuItemButton, Modal, IconCheckOutlineRegular, IconDownloadOutlineRegular, IconLinkOutlineRegular, IconRefreshOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Checkbox, Menu, MenuItemButton, Modal, IconDownloadOutlineRegular, IconLinkOutlineRegular, IconRefreshOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives';
 
 export const name = 'dsh-remote-session';
 export const inject = ['slots'];
@@ -187,7 +187,8 @@ function MachineMenu({ size = 16 }: { size?: number }) {
   const machines = [{ ...snapshot?.self, id: 'local', online: !!snapshot, name: '本机' + (snapshot?.self?.name ? ' · ' + snapshot.self.name : '') }, ...peers];
   return <span style={{ display: 'inline-flex' }} onClick={event => event.stopPropagation()}><style>{`
     .dsh-remote-machine-menu { width: 288px; max-width: calc(100vw - 24px); }
-    .dsh-remote-machine-row { display: grid; grid-template-columns: minmax(0, 1fr) 28px 18px; align-items: center; gap: 2px; border-radius: 6px; padding-right: 6px; min-height: 34px; }
+    .dsh-remote-machine-row { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 2px; border-radius: 6px; padding-right: 6px; min-height: 34px; }
+    .dsh-remote-machine-row[data-machine-id="local"] { grid-template-columns: minmax(0, 1fr); }
     .dsh-remote-machine-row[data-selected="true"] { background: var(--dsw-alias-interactive-bg-hover); }
     .dsh-remote-machine-row > div { min-width: 0; }
     .dsh-remote-machine-row button[role="menuitem"] { width: 100%; min-width: 0; }
@@ -221,12 +222,11 @@ function MachineMenu({ size = 16 }: { size?: number }) {
           icon={<StateDot state={machine.id === 'local' || !machine.online ? 'idle' : 'done'} />} onSelect={() => { void choose(machine.id); }}>
           <span className="dsh-remote-machine-label">{machine.name}{restarting ? '（重启中）' : !machine.online ? '（离线）' : ''}</span>
         </MenuItemButton>
-        <span className="dsh-remote-machine-restart" title={title}>
+        {machine.id !== 'local' && <span className="dsh-remote-machine-restart" title={title}>
           <Button size="sm" variant="toolbar" aria-label={'重启 ' + machine.name} title={title}
             disabled={busy || !!restartingId || !!disabledReason} icon={<IconRefreshOutlineRegular size={14} />}
             onClick={() => { setOpen(false); setRestartTarget(machine); }} />
-        </span>
-        <span aria-hidden="true">{selected === machine.id && <IconCheckOutlineRegular size={14} />}</span>
+        </span>}
       </div>;
     })}
     {!peers.length && <div className="dsh-remote-machine-note">{snapshot ? '暂无远程机器' : '正在读取机器…'}</div>}
