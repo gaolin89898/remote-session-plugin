@@ -1,6 +1,6 @@
 {
   "name": "dsh-remote-session",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -32,6 +32,7 @@
     "cordis.patch.yml",
     "package.json",
     "README.md",
+    "CHANGELOG.md",
     "vendor/LICENSE.deepseek-harness"
   ],
   "engines": {
