@@ -11,27 +11,28 @@ import (
 	"time"
 
 	"github.com/linguo2625469/workbuddy2api-panel/internal/auth"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/upstream"
 )
 
 // cockpitAccount 映射 cockpit tools 导出格式的单个账号。
 type cockpitAccount struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	UID           string `json:"uid"`
-	Nickname      string `json:"nickname"`
-	AccessToken   string `json:"access_token"`
-	RefreshToken  string `json:"refresh_token"`
-	TokenType     string `json:"token_type"`
-	ExpiresAt     int64  `json:"expires_at"`
-	Domain        string `json:"domain"`
-	DosageNotify  string `json:"dosage_notify_code"`
-	PaymentType   string `json:"payment_type"`
-	Status        string `json:"status"`
-	UsageUpdatedAt int64 `json:"usage_updated_at"`
-	LastCheckin   int64  `json:"last_checkin_time"`
-	CheckinStreak int    `json:"checkin_streak"`
-	CreatedAt     int64  `json:"created_at"`
-	LastUsed      int64  `json:"last_used"`
+	ID             string `json:"id"`
+	Email          string `json:"email"`
+	UID            string `json:"uid"`
+	Nickname       string `json:"nickname"`
+	AccessToken    string `json:"access_token"`
+	RefreshToken   string `json:"refresh_token"`
+	TokenType      string `json:"token_type"`
+	ExpiresAt      int64  `json:"expires_at"`
+	Domain         string `json:"domain"`
+	DosageNotify   string `json:"dosage_notify_code"`
+	PaymentType    string `json:"payment_type"`
+	Status         string `json:"status"`
+	UsageUpdatedAt int64  `json:"usage_updated_at"`
+	LastCheckin    int64  `json:"last_checkin_time"`
+	CheckinStreak  int    `json:"checkin_streak"`
+	CreatedAt      int64  `json:"created_at"`
+	LastUsed       int64  `json:"last_used"`
 }
 
 // importCockpit 接收 cockpit tools 导出的 JSON 文件，批量导入账号到池中。
@@ -131,7 +132,7 @@ func (p *Panel) importCockpit(w http.ResponseWriter, r *http.Request) {
 		p.cfg.Pool.Revive(uid)
 
 		// 顺带签到/激活（幂等；失败仅记日志，不阻断导入）。
-		if realm == "global" {
+		if realm == "global" && !p.cfg.AccountsOnly {
 			if activated, err := p.cfg.Upstream.GlobalCompleteRegistration(a); err != nil {
 				log.Printf("panel: import global 注册激活 uid=%s: %v", uid, err)
 			} else if activated {
@@ -142,9 +143,14 @@ func (p *Panel) importCockpit(w http.ResponseWriter, r *http.Request) {
 			} else if claimed {
 				log.Printf("panel: import global trial uid=%s 已领", uid)
 			}
-		} else {
+		} else if realm != "global" && !a.IsEnterprise() {
 			if err := p.cfg.Upstream.DailyCheckin(a); err != nil {
 				log.Printf("panel: import checkin uid=%s: %v", uid, err)
+				if p.cfg.AccountsOnly && upstream.IsAlreadyCheckin(err) {
+					p.cfg.Pool.NoteCheckinDone(uid)
+				}
+			} else if p.cfg.AccountsOnly {
+				p.cfg.Pool.NoteCheckinDone(uid)
 			}
 		}
 		if rm, tt, err := p.cfg.Upstream.UserResource(a); err == nil {

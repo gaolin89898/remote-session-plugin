@@ -52,7 +52,13 @@ func (p *Panel) accountTasks(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "tasks": tasks})
+	var automatic []string
+	for _, task := range tasks {
+		if autoActionFor(task.TaskCode) != nil {
+			automatic = append(automatic, task.TaskCode)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "tasks": tasks, "automatable_codes": automatic})
 }
 
 // accountTaskAccept 接受任务（报名；幂等）。
@@ -62,6 +68,11 @@ func (p *Panel) accountTaskAccept(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
+	if !p.tryLockAccount(uid) {
+		writeErr(w, http.StatusConflict, "该账号正在执行任务，请稍后重试")
+		return
+	}
+	defer p.unlockAccount(uid)
 	var body struct {
 		TaskCodes []string `json:"task_codes"`
 	}
@@ -69,9 +80,25 @@ func (p *Panel) accountTaskAccept(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "task_codes required")
 		return
 	}
-	if err := p.cfg.Upstream.AcceptTasks(a, body.TaskCodes); err != nil {
-		writeErr(w, http.StatusBadGateway, "accept: "+err.Error())
-		return
+	var webCodes, mpCodes []string
+	for _, code := range body.TaskCodes {
+		if isMPTaskCode(code) {
+			mpCodes = append(mpCodes, code)
+		} else {
+			webCodes = append(webCodes, code)
+		}
+	}
+	if len(webCodes) > 0 {
+		if err := p.cfg.Upstream.AcceptTasks(a, webCodes); err != nil {
+			writeErr(w, 502, "accept: "+err.Error())
+			return
+		}
+	}
+	if len(mpCodes) > 0 {
+		if err := p.cfg.Upstream.AcceptTasksMP(a, mpCodes); err != nil {
+			writeErr(w, 502, "accept: "+err.Error())
+			return
+		}
 	}
 	log.Printf("panel: 接受任务 uid=%s codes=%v", uid, body.TaskCodes)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -156,6 +183,11 @@ func (p *Panel) accountTaskClaim(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
+	if !p.tryLockAccount(uid) {
+		writeErr(w, http.StatusConflict, "该账号正在执行任务，请稍后重试")
+		return
+	}
+	defer p.unlockAccount(uid)
 	var body struct {
 		TaskCode string `json:"task_code"`
 	}

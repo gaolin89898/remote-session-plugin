@@ -24,7 +24,7 @@ func TestAppJSSyntax(t *testing.T) {
 	if err != nil {
 		t.Skip("node not available; skipping JS syntax check")
 	}
-	for _, name := range []string{"app.js", "mobile.js"} {
+	for _, name := range []string{"app.js", "mobile.js", "accounts_dist/accounts.js"} {
 		path, err := filepath.Abs(name)
 		if err != nil {
 			t.Fatal(err)

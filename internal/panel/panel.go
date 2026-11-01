@@ -15,6 +15,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,24 +24,31 @@ import (
 
 	"github.com/linguo2625469/workbuddy2api-panel/internal/auth"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/credithist"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/desktop"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/httpauth"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/livecfg"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/pool"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/qoder"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/reqlog"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/scheduler"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/trae"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/upstream"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/usage"
 )
 
 // Config 面板依赖（main 装配注入）。
 type Config struct {
-	Pool      *pool.Pool
-	Upstream  *upstream.Client
-	Scheduler *scheduler.Scheduler // 手动触发签到/保活；nil 时对应接口返回 501
-	AuthDir   string               // OAuth 登录完成后凭证落盘目录
-	APIKey    string               // 空 = 不鉴权（与主服务同语义）；与 Live 同时给出时 Live 优先
-	RedisMode string               // "upstash" / "noop"，仅观测透出
-	Version   string               // 面板版本号（展示用）
+	AccountsOnly bool // Restrict the UI and HTTP routes to account management and check-in.
+	Trae         *trae.Store
+	Qoder        *qoder.Store
+	Pool         *pool.Pool
+	Upstream     *upstream.Client
+	Scheduler    *scheduler.Scheduler // 手动触发签到/保活；nil 时对应接口返回 501
+	AuthDir      string               // OAuth 登录完成后凭证落盘目录
+	DesktopDir   string               // Private native-client login snapshots and rollback backups.
+	APIKey       string               // 空 = 不鉴权（与主服务同语义）；与 Live 同时给出时 Live 优先
+	RedisMode    string               // "upstash" / "noop"，仅观测透出
+	Version      string               // 面板版本号（展示用）
 
 	// Live 运行期可变配置（在线改配置立即生效）。
 	Live *livecfg.Holder
@@ -74,10 +82,13 @@ type Config struct {
 // Panel 管理面板 handler。挂载方式：外层 mux Handle("/panel/", panel)，
 // 本 mux 的 pattern 均带 /panel 前缀（外层不做前缀剥离）。
 type Panel struct {
-	cfg     Config
-	mux     *http.ServeMux
-	started time.Time
-	logs    *Ring
+	cfg        Config
+	mux        *http.ServeMux
+	started    time.Time
+	logs       *Ring
+	traeLogin  *traeLoginManager
+	qoderLogin *qoderLoginManager
+	desktop    *desktop.Manager
 
 	// logins 进行中的 OAuth 设备授权会话（state → 会话信息）。
 	// poll 成功或超时（loginTTL）后剔除；面板常驻进程，容量天然有界。
@@ -133,15 +144,30 @@ type loginSession struct {
 
 // New 构建面板。
 func New(cfg Config) *Panel {
+	if cfg.DesktopDir == "" {
+		cfg.DesktopDir = filepath.Join("data", "desktop")
+	}
 	if cfg.RedisMode == "" {
 		cfg.RedisMode = "noop"
 	}
 	p := &Panel{
-		cfg:     cfg,
-		mux:     http.NewServeMux(),
-		started: time.Now(),
-		logs:    NewRing(500),
-		logins:  map[string]loginSession{},
+		cfg:        cfg,
+		mux:        http.NewServeMux(),
+		started:    time.Now(),
+		logs:       NewRing(500),
+		logins:     map[string]loginSession{},
+		traeLogin:  newTraeLoginManager(),
+		qoderLogin: newQoderLoginManager(),
+		desktop:    desktop.New(cfg.DesktopDir),
+	}
+	if cfg.Qoder != nil {
+		cfg.Qoder.SetDesktopSource(func() *qoder.Account {
+			a := p.desktop.CurrentQoderCredential()
+			if a == nil {
+				return nil
+			}
+			return &qoder.Account{AccountUID: a.UID, Nickname: a.Name, Token: a.Token, RefreshToken: a.Refresh, ExpiresAt: a.ExpiresAt, RefreshExpiresAt: a.RefreshExpiresAt}
+		})
 	}
 	p.routes()
 	return p
@@ -151,6 +177,10 @@ func New(cfg Config) *Panel {
 func (p *Panel) Logs() *Ring { return p.logs }
 
 func (p *Panel) routes() {
+	if p.cfg.AccountsOnly {
+		p.accountRoutes()
+		return
+	}
 	p.mux.HandleFunc("GET /panel/{$}", p.index)
 	p.mux.HandleFunc("GET /panel/app.js", p.appScript)
 	p.mux.HandleFunc("GET /panel/mobile.css", p.mobileStyle)
@@ -272,14 +302,16 @@ func (p *Panel) overview(w http.ResponseWriter, r *http.Request) {
 		"disabled":        disabled,
 		"paused":          paused,
 		"in_flight_full":  inFlightFull,
-		"accounts":        p.cfg.Pool.List(),
+		"accounts":        p.benefitAccountStatuses(),
+		"trae_accounts":   p.traeAccounts(),
+		"qoder_accounts":  p.qoderAccounts(),
 		// model_locks 模型级限流全清单（哪些模型不能用、锁了几个号、还要锁多久）：
 		// 与 accounts 的账号池视图互补，前端「模型锁池」表直接渲染。无锁时为 null。
 		"model_locks": p.cfg.Pool.ModelLockView(),
 		// 到期提醒快照的节奏与年龄：界面轮询是 5 秒级，但卡片数据只随余额后台刷新
 		// 更新（默认每 5 分钟）——把这两个数透出，前端才能如实标注「x 分钟前更新」。
-		"balance_refresh_sec":    p.balanceRefreshSec(),
-		"balance_refreshed_at":   p.balanceRefreshedAt(),
+		"balance_refresh_sec":  p.balanceRefreshSec(),
+		"balance_refreshed_at": p.balanceRefreshedAt(),
 	})
 }
 
@@ -621,6 +653,16 @@ func (p *Panel) accountCheckin(w http.ResponseWriter, r *http.Request) {
 	}
 	checkinMsg := ""
 	checkinDone := false
+	if p.cfg.AccountsOnly {
+		if a.IsGlobal() {
+			writeErr(w, http.StatusBadRequest, "国际版账号不支持每日签到")
+			return
+		}
+		if err := p.cfg.Upstream.EnsureFreshToken(a, 10*time.Minute); err != nil {
+			writeErr(w, http.StatusBadGateway, "刷新登录凭证失败: "+err.Error())
+			return
+		}
+	}
 	// 企业版无签到体系（上游 400 code 10001「企业账号不支持该操作」）：不发起该调用，
 	// 端点退化为「刷新额度」——企业额度走 get-enterprise-user-usage 口径（见 upstream）。
 	// 前端对企业号不渲染「签到」按钮；此处是 API 侧防御（外部脚本/旧缓存前端仍可能调用）。
@@ -643,6 +685,11 @@ func (p *Panel) accountCheckin(w http.ResponseWriter, r *http.Request) {
 	}
 	if checkinMsg != "" {
 		resp["checkin_message"] = checkinMsg
+	}
+	if p.cfg.AccountsOnly && p.cfg.Scheduler != nil && !p.cfg.Scheduler.CheckinRefreshEnabled() {
+		log.Printf("panel: checkin uid=%s done=%t msg=%q", uid, checkinDone, checkinMsg)
+		writeJSON(w, http.StatusOK, resp)
+		return
 	}
 	remain, total, expiring, earliestAt, earliestRemaining, buckets, err := p.cfg.Upstream.UserResourceSnapshot(a, p.expiringSoonWindow())
 	if err != nil {
@@ -672,6 +719,12 @@ func (p *Panel) accountBalance(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		writeErr(w, http.StatusNotFound, "account not found")
 		return
+	}
+	if p.cfg.AccountsOnly {
+		if err := p.cfg.Upstream.EnsureFreshToken(a, 10*time.Minute); err != nil {
+			writeErr(w, http.StatusBadGateway, "刷新登录凭证失败: "+err.Error())
+			return
+		}
 	}
 	remain, total, expiring, earliestAt, earliestRemaining, buckets, err := p.cfg.Upstream.UserResourceSnapshot(a, p.expiringSoonWindow())
 	if err != nil {
@@ -723,7 +776,7 @@ func (p *Panel) checkinAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go p.cfg.Scheduler.RunCheckinNow()
-	log.Printf("panel: 手动全量签到已触发（含猫猫旅行）")
+	log.Printf("panel: 手动全量签到已触发")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": true})
 }
 

@@ -40,6 +40,10 @@ type Config struct {
 	// CheckinDisabled 显式关闭签到排程（对应 config 的 schedule.checkin_enabled=false）。
 	// 禁用后不再有任何签到时点。旅行不再搭签到便车（已剥离为独立排程）。
 	CheckinDisabled bool
+	// CheckinOnly excludes reward redemption and refreshes expiring credentials before check-in.
+	CheckinOnly bool
+	// CheckinHook runs another account provider at the same automatic slots.
+	CheckinHook func()
 	// TravelDisabled 显式关闭猫猫旅行排程（schedule.travel_enabled=false）。
 	TravelDisabled bool
 	// ActivityDisabled 显式关闭活跃上报排程（schedule.activity_enabled=false）。
@@ -70,7 +74,8 @@ type Config struct {
 
 // Scheduler 调度器。
 type Scheduler struct {
-	cfg Config
+	cfg       Config
+	checkinMu sync.Mutex
 
 	// mu/adoptTried 领养当日失败记录：uid → 自然日（CST）。门槛未达的账号当日不再重试，
 	// 避免同日多趟对上游重试轰炸；进程重启即清零（无需持久化）。
@@ -96,7 +101,17 @@ type Scheduler struct {
 	// lastBalanceRefresh 最近一次后台余额刷新的完成时刻（Unix 纳秒，0=尚未跑过）。
 	// 供面板「到期提醒」标注数据年龄：卡片展示的是这份快照，必须让年龄可读，
 	// 否则界面 5 秒轮询会让人误以为数据也是 5 秒级新鲜。
-	lastBalanceRefresh atomic.Int64
+	lastBalanceRefresh     atomic.Int64
+	checkinRefreshDisabled atomic.Bool
+}
+
+// SetCheckinRefreshEnabled controls balance queries after check-in in account mode.
+func (s *Scheduler) SetCheckinRefreshEnabled(enabled bool) {
+	s.checkinRefreshDisabled.Store(!enabled)
+}
+
+func (s *Scheduler) CheckinRefreshEnabled() bool {
+	return !s.cfg.CheckinOnly || !s.checkinRefreshDisabled.Load()
 }
 
 // New 构建。
@@ -419,6 +434,9 @@ func (s *Scheduler) runBatch(ctx context.Context, kinds []taskKind) {
 			switch k {
 			case taskCheckin:
 				s.RunCheckinNow()
+				if s.cfg.CheckinHook != nil {
+					s.cfg.CheckinHook()
+				}
 			case taskTravel:
 				s.RunTravelNow()
 			case taskActivity:
@@ -464,6 +482,8 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 // 末尾追加连登管家（streak.go）：可兑换档位自动兑换 + 抽奖次数自动抽完——
 // 连登兑换按天数解锁，挂在每日签到后即「到天数那天自动完成兑换→抽奖闭环」。
 func (s *Scheduler) RunCheckinNow() {
+	s.checkinMu.Lock()
+	defer s.checkinMu.Unlock()
 	expiringSoon := s.ExpiringSoonWindow()
 	includeDisabled := s.includeDisabledInTasks()
 	for _, st := range s.cfg.Pool.List() {
@@ -479,6 +499,15 @@ func (s *Scheduler) RunCheckinNow() {
 		// 按 CN 处理——这是逃生门的刻意语义（纯 CN 部署锁死一切 global），与引用处一致。
 		if a.IsGlobal() {
 			continue
+		}
+		if s.cfg.CheckinOnly {
+			if st.CheckinDone && !a.IsEnterprise() {
+				continue
+			}
+			if err := s.cfg.Upstream.EnsureFreshToken(a, 10*time.Minute); err != nil {
+				log.Printf("checkin %s: 刷新登录凭证失败: %v", logfmt.Label(st.UID, st.Nickname), err)
+				continue
+			}
 		}
 		// 企业版无签到体系：上游对 POST /v2/billing/meter/daily-checkin 直接
 		// 400 code 10001「企业账号不支持该操作」。跳过签到，但**不 continue**——
@@ -501,6 +530,9 @@ func (s *Scheduler) RunCheckinNow() {
 				log.Printf("checkin %s: 签到成功", logfmt.Label(st.UID, st.Nickname))
 			}
 		}
+		if !s.CheckinRefreshEnabled() {
+			continue
+		}
 		// 分桶查余额：配置窗口内的积分单独标记，同时记录最早未来到期批次与
 		// 按自然日聚合的全部批次（首页快照与「检查」共用同一口径）。
 		remain, total, expiring, earliestAt, earliestRemaining, buckets, err := s.cfg.Upstream.UserResourceSnapshot(a, expiringSoon)
@@ -518,7 +550,9 @@ func (s *Scheduler) RunCheckinNow() {
 			ExpiryBuckets:     poolExpiryBuckets(buckets),
 		})
 	}
-	s.RunStreakBonusNow()
+	if !s.cfg.CheckinOnly {
+		s.RunStreakBonusNow()
+	}
 }
 
 // RunActivityNow 立即对池内所有可用账号执行一次对话活跃上报。
@@ -665,6 +699,12 @@ func (s *Scheduler) RunBalanceRefreshNow() {
 		wg.Add(1)
 		go func(a *auth.Auth, uid string) {
 			defer wg.Done()
+			if s.cfg.CheckinOnly {
+				if err := s.cfg.Upstream.EnsureFreshToken(a, 10*time.Minute); err != nil {
+					log.Printf("balance %s: 刷新登录凭证失败: %v", logfmt.Label(uid, a.Nickname), err)
+					return
+				}
+			}
 			remain, total, expiring, earliestAt, earliestRemaining, buckets, err := s.cfg.Upstream.UserResourceSnapshot(a, expiringSoon)
 			if err != nil {
 				log.Printf("balance %s: %v", logfmt.Label(uid, a.Nickname), err)
@@ -679,7 +719,7 @@ func (s *Scheduler) RunBalanceRefreshNow() {
 				EarliestRemaining: earliestRemaining,
 				ExpiryBuckets:     poolExpiryBuckets(buckets),
 			})
-			}(a, st.UID)
+		}(a, st.UID)
 	}
 	wg.Wait()
 	s.lastBalanceRefresh.Store(time.Now().UnixNano())

@@ -5,6 +5,9 @@ data/
 .gitignore
 docs/
 scripts/__pycache__/
+**/node_modules/
+web/
+design/
 # 根目录已提交/未提交的二进制产物不进构建上下文（与 .gitignore 对齐）
 /login
 /credit

@@ -1,0 +1,89 @@
+<script setup>
+import { computed, ref } from 'vue';
+import DesktopSwitch from './DesktopSwitch.vue';
+import DesktopStatus from './DesktopStatus.vue';
+import { Button as AButton, Input as AInput, Table as ATable, TableColumn as ATableColumn, Progress as AProgress, Empty as AEmpty, Tooltip as ATooltip, Modal as AModal, Select as ASelect, Option as AOption } from '@arco-design/web-vue';
+import { IconSearch, IconFilter, IconRefresh, IconPlus, IconCheck, IconClockCircle, IconArrowRight, IconCalendar } from '@arco-design/web-vue/es/icon';
+import { canCheckin, checkinState, accountEdition, accountCredits, formatHour, formatNumber, chinaDate } from '../useAccounts';
+
+const props = defineProps({ model: Object });
+const emit = defineEmits(['remark', 'remove', 'navigate', 'switch']);
+const query = ref(''), filter = ref('all'), expiryVisible = ref(false), filtersVisible = ref(false);
+const quiet = promise => promise?.catch(() => {});
+const filters = computed(() => [
+  { id: 'all', text: '全部', count: props.model.accounts.length },
+  { id: 'pending', text: '待签到', count: props.model.pending.length },
+  { id: 'signed', text: '已签到', count: props.model.signed.length },
+  { id: 'disabled', text: '已停用', count: props.model.accounts.filter(a => a.disabled).length },
+]);
+const visible = computed(() => props.model.accounts.filter(a => {
+  const text = [a.uid, a.nickname, props.model.remarks[a.uid]].join(' ').toLowerCase();
+  return text.includes(query.value.trim().toLowerCase()) && (filter.value === 'all' || filter.value === 'pending' && canCheckin(a) && !a.checkin_done || filter.value === 'signed' && canCheckin(a) && a.checkin_done || filter.value === 'disabled' && a.disabled);
+}));
+const domesticCount = computed(() => props.model.accounts.filter(a => a.realm !== 'global').length);
+const expirySoon = computed(() => props.model.expiryEntries.filter(e => new Date(e.expires_at || e.date).getTime() - props.model.now < 30 * 86400000));
+const ratio = a => a.credits_total > 0 ? Math.min(1, Math.max(0, a.credits / a.credits_total)) : 0;
+function daysLeft(entry) { return Math.max(0, Math.ceil((new Date(entry.expires_at || entry.date).getTime() - props.model.now) / 86400000)); }
+function expiryDate(entry) { return new Date(entry.expires_at || entry.date).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit' }); }
+</script>
+
+<template>
+  <section class="account-view">
+    <header class="page-heading">
+      <div><div class="eyebrow">{{ model.providerName.toUpperCase() }} · {{ chinaDate(model.now).replaceAll('-', '.') }}</div><h1>{{ model.providerName }} 账号</h1><p>{{ model.accounts.length }} 个账号 · 今日已签到 {{ model.signed.length }} 个 <span class="heading-state"><i class="status-dot" />{{ model.schedule?.checkin_enabled ? '自动签到已开启' : '手动签到模式' }}</span></p></div>
+      <div class="heading-actions"><a-button :loading="model.busy.has('balances')" :disabled="!model.accounts.length" @click="quiet(model.refreshBalances())"><template #icon><icon-refresh /></template>刷新积分</a-button><a-button :loading="model.busy.has('checkin-all')" :disabled="!model.pending.length" @click="quiet(model.checkinAll())"><template #icon><icon-check /></template>全部签到</a-button><a-button type="primary" @click="model.openAdd()"><template #icon><icon-plus /></template>添加账号</a-button></div>
+      <div class="mobile-bulk-actions"><a-tooltip content="刷新积分"><a-button aria-label="刷新积分" :loading="model.busy.has('balances')" :disabled="!model.accounts.length" @click="quiet(model.refreshBalances())"><template #icon><icon-refresh /></template></a-button></a-tooltip><a-tooltip content="全部签到"><a-button aria-label="全部签到" :loading="model.busy.has('checkin-all')" :disabled="!model.pending.length" @click="quiet(model.checkinAll())"><template #icon><icon-check /></template></a-button></a-tooltip></div>
+    </header>
+
+    <div class="stats-band">
+      <div class="metric"><span class="metric-label"><span class="desktop-text">账号总数</span><span class="mobile-text">账号</span></span><strong>{{ formatNumber(model.accounts.length) }}</strong><small>国内版 {{ domesticCount }} · 国际版 {{ model.accounts.length - domesticCount }}</small></div>
+      <div class="metric"><span class="metric-label"><span class="desktop-text">今日已签到</span><span class="mobile-text">已签到</span></span><strong class="accent-text">{{ formatNumber(model.signed.length) }}</strong><small>共 {{ model.eligible.length }} 个可签到账号</small></div>
+      <div class="metric"><span class="metric-label">待签到</span><strong class="warning-text">{{ formatNumber(model.pending.length) }}</strong><small>{{ model.nextRun ? `下次签到 ${model.nextRun.day} ${model.nextRun.time}` : '自动签到已关闭' }}</small></div>
+      <div class="metric"><span class="metric-label"><span class="desktop-text">剩余积分</span><span class="mobile-text">积分</span></span><strong :class="{ 'compact-value': formatNumber(model.credits).length > 5 }" :title="formatNumber(model.credits)">{{ model.accounts.length && model.unknownBalances === model.accounts.length ? '--' : formatNumber(model.credits) }}</strong><small v-if="model.unknownBalances">{{ model.unknownBalances }} 个账号尚未获取余额</small><small v-else>总额 {{ model.totalCredits ? formatNumber(model.totalCredits) : '--' }}<template v-if="model.totalCredits"> · 剩余 {{ Math.round(model.credits / model.totalCredits * 100) }}%</template></small></div>
+    </div>
+
+    <DesktopStatus :model="model" />
+    <p v-if="model.provider === 'qoder'" class="qoder-reward-note">每日奖励于北京时间 10:00 更新，每轮 100 Credits，有效期 30 天。</p>
+
+    <div class="account-toolbar">
+      <a-input v-model="query" allow-clear placeholder="搜索账号、昵称或备注" :input-attrs="{ 'aria-label': '搜索账号' }" class="account-search"><template #prefix><icon-search /></template></a-input>
+      <div class="filter-tabs" role="group" aria-label="筛选账号"><button v-for="item in filters" :key="item.id" :class="{ active: filter === item.id }" :aria-pressed="filter === item.id" @click="filter = item.id">{{ item.text }} <span>{{ item.count }}</span></button></div>
+      <span class="result-count">{{ visible.length }} / {{ model.accounts.length }} 个账号</span>
+      <a-tooltip content="筛选账号"><a-button class="mobile-filter" aria-label="筛选账号" @click="filtersVisible = true"><template #icon><icon-filter /></template></a-button></a-tooltip>
+    </div>
+
+    <div class="desktop-account-table">
+      <a-table :data="visible" row-key="uid" :pagination="false" :bordered="false" :loading="model.loading" :scroll="{ x: 1050 }" :hoverable="false">
+        <template #columns>
+          <a-table-column title="账号" :width="300"><template #cell="{ record }"><div class="account-identity"><span :class="['account-avatar', { disabled: record.disabled }]">{{ model.accountName(record).slice(0, 1) }}</span><div class="identity-text"><strong>{{ model.accountName(record) }}</strong><small>{{ record.uid }}</small><a-tooltip v-if="record.last_error" :content="record.last_error"><div class="account-warning">{{ record.last_error }}</div></a-tooltip></div></div></template></a-table-column>
+          <a-table-column title="状态" :width="112"><template #cell="{ record }"><span :class="['account-status', { disabled: record.disabled, 'warning-text': record.last_error && !record.disabled }]"><i class="status-dot" />{{ record.disabled ? '已停用' : record.last_error ? '需处理' : '正常' }}</span><small class="realm-name">{{ accountEdition(record) }}</small></template></a-table-column>
+          <a-table-column title="剩余积分" :width="150"><template #cell="{ record }"><div :class="['credit-amount', { disabled: record.disabled }]"><b>{{ accountCredits(record) }}</b><small v-if="record.credits_total"> / {{ formatNumber(record.credits_total) }}</small></div><a-progress v-if="record.credits_total" :percent="ratio(record)" :show-text="false" size="small" :stroke-width="3" :color="record.disabled ? 'var(--muted)' : 'var(--accent)'" /></template></a-table-column>
+          <a-table-column :title="model.provider === 'qoder' ? '本轮奖励' : '今日签到'" :width="124"><template #cell="{ record }"><span :class="['checkin-tag', checkinState(record).kind]"><icon-check v-if="record.checkin_done" /><icon-clock-circle v-else-if="canCheckin(record)" />{{ checkinState(record).text }}</span></template></a-table-column>
+          <a-table-column title="操作" :width="model.provider === 'trae' ? 360 : 300" align="right"><template #cell="{ record }"><div class="row-actions"><DesktopSwitch :model="model" :account="record" @switch="emit('switch', $event)" /><a-button v-if="canCheckin(record) && !record.checkin_done" type="text" size="mini" class="checkin-action" :loading="model.busy.has(record.uid + ':checkin')" @click="quiet(model.accountAction(record, 'checkin'))">签到</a-button><template v-if="['trae', 'qoder'].includes(record.provider)"><a-button type="text" size="mini" :loading="model.busy.has(record.uid + ':balance')" @click="quiet(model.accountAction(record, 'balance'))">刷新</a-button><a-button type="text" size="mini" @click="record.provider === 'qoder' ? model.updateQoder(record) : model.updateTrae(record)">凭证</a-button></template><a-button type="text" size="mini" @click="emit('remark', record)">备注</a-button><a-button type="text" size="mini" :loading="model.busy.has(record.uid + ':' + (record.disabled ? 'revive' : 'disable'))" @click="quiet(model.accountAction(record, record.disabled ? 'revive' : 'disable'))">{{ record.disabled ? '启用' : '停用' }}</a-button><a-button type="text" status="danger" size="mini" @click="emit('remove', record)">移除</a-button></div></template></a-table-column>
+        </template>
+        <template #empty><a-empty :description="model.accounts.length ? '没有匹配的账号' : '还没有账号'"><a-button v-if="!model.accounts.length" type="primary" @click="model.openAdd()"><template #icon><icon-plus /></template>添加账号</a-button></a-empty></template>
+      </a-table>
+      <footer class="table-footer"><span><i class="status-dot" />{{ model.schedule?.checkin_enabled ? '自动签到已开启' : '自动签到已关闭' }} · 北京时间 {{ model.effectiveHours.map(formatHour).join(' / ') }}<template v-if="model.nextRun"> · 下次 {{ model.nextRun.day }} {{ model.nextRun.time }}</template></span><span>积分在签到或手动刷新后更新</span></footer>
+    </div>
+
+    <div class="mobile-account-list">
+      <article v-for="account in visible" :key="account.uid" class="mobile-account">
+        <div class="mobile-account-top"><div class="account-identity"><span :class="['account-avatar', { disabled: account.disabled }]">{{ model.accountName(account).slice(0, 1) }}</span><div class="identity-text"><strong>{{ model.accountName(account) }}</strong><small>{{ account.uid }}</small></div></div><span :class="['account-status', { disabled: account.disabled }]"><i class="status-dot" />{{ account.disabled ? '已停用' : '正常' }}</span></div>
+        <div class="mobile-account-balance"><div><small>剩余积分</small><div class="credit-amount"><b>{{ accountCredits(account) }}</b><small v-if="account.credits_total"> / {{ formatNumber(account.credits_total) }}</small></div></div><span :class="['checkin-tag', checkinState(account).kind]"><icon-check v-if="account.checkin_done" /><icon-clock-circle v-else-if="canCheckin(account)" />{{ checkinState(account).text }}</span></div>
+        <p v-if="account.last_error" class="account-warning" :title="account.last_error">{{ account.last_error }}</p>
+        <div class="mobile-desktop-action"><DesktopSwitch :model="model" :account="account" @switch="emit('switch', $event)" /></div><footer class="mobile-account-footer"><span class="realm-pill">{{ accountEdition(account) }}</span><div class="row-actions"><a-button v-if="canCheckin(account) && !account.checkin_done" type="text" size="mini" :loading="model.busy.has(account.uid + ':checkin')" @click="quiet(model.accountAction(account, 'checkin'))">签到</a-button><template v-if="['trae', 'qoder'].includes(account.provider)"><a-button type="text" size="mini" :loading="model.busy.has(account.uid + ':balance')" @click="quiet(model.accountAction(account, 'balance'))">刷新</a-button><a-button type="text" size="mini" @click="account.provider === 'qoder' ? model.updateQoder(account) : model.updateTrae(account)">凭证</a-button></template><a-button type="text" size="mini" @click="emit('remark', account)">备注</a-button><a-button type="text" size="mini" :loading="model.busy.has(account.uid + ':' + (account.disabled ? 'revive' : 'disable'))" @click="quiet(model.accountAction(account, account.disabled ? 'revive' : 'disable'))">{{ account.disabled ? '启用' : '停用' }}</a-button><a-button type="text" status="danger" size="mini" @click="emit('remove', account)">移除</a-button></div></footer>
+      </article>
+      <a-empty v-if="!visible.length && !model.loading" :description="model.accounts.length ? '没有匹配的账号' : '还没有账号'"><a-button v-if="!model.accounts.length" type="primary" @click="model.openAdd()">添加账号</a-button></a-empty>
+      <p class="mobile-schedule-line"><i class="status-dot" />{{ model.schedule?.checkin_enabled ? '自动签到' : '自动签到已关闭' }} {{ model.effectiveHours.map(formatHour).join(' / ') }}<template v-if="model.nextRun"> · 下次 {{ model.nextRun.day }} {{ model.nextRun.time }}</template></p>
+    </div>
+
+    <div class="account-insights">
+      <section class="schedule-insight"><div class="inline-between"><h2>自动签到 <span :class="['checkin-tag', model.schedule?.checkin_enabled ? 'success' : 'muted']">{{ model.schedule?.checkin_enabled ? '运行中' : '已关闭' }}</span></h2><a-button type="text" size="mini" @click="emit('navigate', 'settings')">签到设置<icon-arrow-right /></a-button></div><div class="insight-times"><template v-for="(hour, index) in model.effectiveHours" :key="hour"><span v-if="index" class="time-separator">·</span><b>{{ formatHour(hour) }}</b></template><small>每天 · 北京时间</small></div><div class="schedule-pills"><span v-for="hour in model.effectiveHours" :key="hour"><icon-calendar />{{ formatHour(hour) }}</span></div><p><icon-clock-circle />{{ model.nextRun ? `下次运行 ${model.nextRun.day} ${model.nextRun.time} · 还有 ${model.nextRun.remaining}` : '当前仅支持手动签到' }}</p></section>
+      <section v-if="model.provider === 'qoder'" class="expiry-insight"><div class="inline-between"><h2>奖励领取 <small>Qoder 国内版</small></h2></div><div class="expiry-row"><span>支持自动续期</span><b>{{ model.accounts.filter(a => a.has_refresh).length }} 个账号</b></div><p>每轮窗口为当日 10:00 至次日 10:00。早于 10 点的签到时刻顺延至 10:00。</p><a class="qoder-rules" href="https://docs.qoder.cn/events/100credits" target="_blank" rel="noopener noreferrer">官方活动规则</a></section>
+      <section v-else-if="model.provider === 'trae'" class="expiry-insight"><div class="inline-between"><h2>登录状态 <small>Trae 国内版</small></h2></div><div class="expiry-row"><span>支持自动续期</span><b>{{ model.accounts.filter(a => a.has_session || a.has_oauth).length }} 个账号</b></div><div class="expiry-row"><span>需要检查凭证或请求结果</span><b>{{ model.accounts.filter(a => a.last_error).length }} 个账号</b></div><p>登录失效后，使用「凭证」重新授权或更新 Session。</p></section>
+      <section v-else class="expiry-insight"><div class="inline-between"><h2>积分到期 <small>按到期先后扣减</small></h2><a-button v-if="model.expiryEntries.length" type="text" size="mini" @click="expiryVisible = true">查看全部<icon-arrow-right /></a-button></div><div v-if="!model.expiryEntries.length" class="inline-empty">暂无积分到期记录</div><div v-for="entry in model.expiryEntries.slice(0, 2)" :key="entry.uid + entry.date + entry.expires_at" class="expiry-row"><time>{{ expiryDate(entry) }}</time><span>{{ entry.name }}</span><b>{{ formatNumber(entry.remain) }} 分</b><small>{{ daysLeft(entry) }} 天后</small></div><p v-if="expirySoon.length">30 天内共 {{ formatNumber(expirySoon.reduce((sum, entry) => sum + Number(entry.remain), 0)) }} 分到期</p></section>
+    </div>
+    <a-modal v-model:visible="expiryVisible" title="积分到期" :footer="false" width="560px" :unmount-on-close="true"><div class="all-expiry"><div v-for="entry in model.expiryEntries" :key="entry.uid + entry.date + entry.expires_at" class="expiry-row"><time>{{ expiryDate(entry) }}</time><span>{{ entry.name }}</span><b>{{ formatNumber(entry.remain) }} 分</b><small>{{ daysLeft(entry) }} 天后</small></div></div></a-modal>
+    <a-modal v-model:visible="filtersVisible" title="筛选账号" :footer="false" width="360px"><a-select v-model="filter" aria-label="筛选账号状态" @change="filtersVisible = false"><a-option v-for="item in filters" :key="item.id" :value="item.id">{{ item.text }}（{{ item.count }}）</a-option></a-select></a-modal>
+  </section>
+</template>

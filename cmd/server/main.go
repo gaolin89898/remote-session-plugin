@@ -50,7 +50,24 @@ func stateSibling(stateFile, name string) string {
 
 func main() {
 	cfgPath := flag.String("config", "config.json", "配置文件路径（默认当前目录 config.json；不存在时自动生成推荐配置）")
+	gateway := flag.Bool("gateway", false, "启用完整 API 网关（默认仅运行账号管理与每日签到）")
+	desktop := flag.Bool("desktop", desktopDefault, "在桌面窗口中打开账号管理")
 	flag.Parse()
+	if *desktop {
+		explicitConfig := false
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == "config" {
+				explicitConfig = true
+			}
+		})
+		path, cleanup, err := prepareDesktop(*cfgPath, explicitConfig)
+		if err != nil {
+			reportDesktopError(err)
+			return
+		}
+		defer cleanup()
+		*cfgPath = path
+	}
 
 	cfg, err := Load(*cfgPath)
 	if err != nil {
@@ -59,7 +76,11 @@ func main() {
 			// 首次运行：目录下没有配置 → 自动落一份推荐配置（含随机 api_key）再加载。
 			// 双击 exe / 裸跑 docker 即开，无需先手工复制样例。
 			if key, werr := WriteDefault(*cfgPath); werr == nil {
-				log.Printf("config %s 不存在，已生成推荐配置（api_key=%s，记录在该文件里，可自行修改）", *cfgPath, key)
+				if *desktop {
+					log.Printf("config %s 不存在，已生成推荐配置（管理密钥保存在配置文件中）", *cfgPath)
+				} else {
+					log.Printf("config %s 不存在，已生成推荐配置（api_key=%s，记录在该文件里，可自行修改）", *cfgPath, key)
+				}
 				cfg, err = Load(*cfgPath)
 			}
 			if err != nil {
@@ -69,8 +90,29 @@ func main() {
 			}
 		}
 		if err != nil {
+			if *desktop {
+				reportDesktopError(err)
+				return
+			}
 			log.Fatalf("load config: %v", err)
 		}
+	}
+
+	if *desktop {
+		if *gateway {
+			reportDesktopError(fmt.Errorf("桌面版仅支持账号管理模式"))
+			return
+		}
+		if err := runDesktop(*cfgPath, cfg); err != nil {
+			reportDesktopError(err)
+		}
+		return
+	}
+	if !*gateway {
+		if err := runAccounts(*cfgPath, cfg); err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
 
 	auths, err := auth.LoadDir(cfg.AuthDir)

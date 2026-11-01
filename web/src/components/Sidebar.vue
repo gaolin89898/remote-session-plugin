@@ -1,0 +1,35 @@
+<script setup>
+import { Button as AButton, Tooltip as ATooltip } from '@arco-design/web-vue';
+import { IconUserGroup, IconCalendar, IconFile, IconSafe, IconMoon, IconSun, IconClockCircle, IconCheckSquare, IconGift, IconBarChart } from '@arco-design/web-vue/es/icon';
+import { clockTime, formatHour } from '../useAccounts';
+
+defineProps({ model: Object, view: String, dark: Boolean });
+const emit = defineEmits(['navigate', 'key', 'theme']);
+const tabs = [{ id: 'accounts', name: '账号', icon: IconUserGroup }, { id: 'tasks', name: '任务中心', icon: IconCheckSquare }, { id: 'credits', name: '积分明细', icon: IconBarChart }, { id: 'rewards', name: '活动奖励', icon: IconGift }, { id: 'settings', name: '签到设置', icon: IconCalendar }, { id: 'logs', name: '运行日志', icon: IconFile }];
+</script>
+
+<template>
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <a class="brand" href="#accounts" @click.prevent="emit('navigate', 'accounts')">
+        <span class="brand-mark">A</span><span><strong>账号控制台</strong><small>WorkBuddy · Trae · Qoder</small></span>
+      </a>
+      <nav class="side-navigation" aria-label="主导航">
+        <span class="nav-caption">工作台</span>
+        <button v-for="tab in tabs" :key="tab.id" :class="{ active: view === tab.id }" :aria-current="view === tab.id ? 'page' : undefined" @click="emit('navigate', tab.id)"><component :is="tab.icon" /><span>{{ tab.name }}</span></button>
+      </nav>
+      <div class="sidebar-schedule">
+        <div class="inline-between"><span>自动签到</span><span class="side-badge">{{ model.schedule?.checkin_enabled ? '已开启' : '已关闭' }}</span></div>
+        <div class="side-times"><template v-for="(hour, index) in model.effectiveHours" :key="hour"><span v-if="index" class="time-separator">·</span><b>{{ formatHour(hour) }}</b></template><span v-if="!model.schedule">--:--</span></div>
+        <span class="side-muted">每天 · 北京时间</span>
+        <div class="side-next"><icon-clock-circle /><span>{{ model.nextRun ? `下次运行 ${model.nextRun.day} ${model.nextRun.time}` : '自动签到已关闭' }}</span></div>
+      </div>
+      <section class="recent-activity"><span class="nav-caption">最近活动</span><div v-for="entry in model.recentActivity" :key="entry.ts + entry.text" class="activity-row"><time>{{ clockTime(entry.ts).slice(0, 5) }}</time><span :title="entry.text">{{ entry.text }}</span></div><div v-if="!model.recentActivity.length" class="side-muted">暂无任务记录</div></section>
+    </div>
+    <div class="sidebar-footer">
+      <div class="inline-between connection"><span><i :class="['status-dot', { offline: !model.connected }]" />{{ model.connected ? '服务已连接' : '未连接' }}</span><small>127.0.0.1</small></div>
+      <div class="side-version">{{ model.overview.version || 'WorkBuddy' }} · Asia/Shanghai</div>
+      <div class="footer-buttons"><a-button long class="key-button" @click="emit('key')"><template #icon><icon-safe /></template>管理密钥</a-button><a-tooltip :content="dark ? '切换浅色主题' : '切换深色主题'"><a-button class="theme-button" :aria-label="dark ? '切换浅色主题' : '切换深色主题'" @click="emit('theme')"><template #icon><icon-sun v-if="dark" /><icon-moon v-else /></template></a-button></a-tooltip></div>
+    </div>
+  </aside>
+</template>

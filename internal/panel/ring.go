@@ -33,6 +33,8 @@ var taskPrefixes = []string{
 	"checkin ", "activity ", "keepalive ", "balance ", "user-resource ",
 	"panel: 任务", "panel: 一键", "panel: checkin", "panel: 手动",
 	"panel: 队列", "panel: 券码",
+	"trae:",
+	"qoder:",
 }
 
 // tsPrefixRe log 包默认 flags（日期 时间）产生的行首时间戳。

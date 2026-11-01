@@ -79,7 +79,7 @@ func (p *Panel) tasksScanAll(w http.ResponseWriter, r *http.Request) {
 			}
 			// 企业版门控：同上——企业版无个人成长体系（GET /v2/activity/growth/tasks
 			// 上游 403「growth system is only available for personal users」）。
-			if a.IsEnterprise() {
+			if a.IsEnterprise() || a.IsEnterpriseSession() {
 				return
 			}
 			if tasks, err := p.cfg.Upstream.ListTasks(a); err != nil {

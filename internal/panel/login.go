@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/linguo2625469/workbuddy2api-panel/internal/auth"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/upstream"
 )
 
 const (
@@ -247,7 +248,7 @@ func (p *Panel) loginPoll(w http.ResponseWriter, r *http.Request) {
 	checkinMsg := ""
 	remain := int64(-1)
 	total := int64(0)
-	if sess.realm == "global" {
+	if sess.realm == "global" && !p.cfg.AccountsOnly {
 		// 注册激活（幂等）：region required 时自动补地区（白名单首个，HK）后重新激活。
 		// 失败不阻断登录结果（auth 已落盘），只在返回字段里体现。
 		if activated, err := p.cfg.Upstream.GlobalCompleteRegistration(a); err != nil {
@@ -263,12 +264,18 @@ func (p *Panel) loginPoll(w http.ResponseWriter, r *http.Request) {
 		} else if claimed {
 			log.Printf("panel: global trial uid=%s 已领", acct.UID)
 		}
-	} else if !a.IsEnterprise() {
+	} else if sess.realm != "global" && !a.IsEnterprise() {
 		// 企业版跳过签到：上游 POST /v2/billing/meter/daily-checkin 对企业号
 		// 400 code 10001「企业账号不支持该操作」，发了只会把该错误写进登录返回。
 		// 下方 UserResource 余额查询照常（企业额度走 get-enterprise-user-usage 口径）。
 		if err := p.cfg.Upstream.DailyCheckin(a); err != nil {
 			checkinMsg = err.Error()
+			if p.cfg.AccountsOnly && upstream.IsAlreadyCheckin(err) {
+				p.cfg.Pool.NoteCheckinDone(acct.UID)
+				checkinMsg = ""
+			}
+		} else if p.cfg.AccountsOnly {
+			p.cfg.Pool.NoteCheckinDone(acct.UID)
 		}
 	}
 	if rm, tt, err := p.cfg.Upstream.UserResource(a); err == nil {
