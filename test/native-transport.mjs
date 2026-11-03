@@ -53,10 +53,18 @@ function fixture(options = {}) {
   });
   const nativeCalls = [];
   const localCalls = [];
+  const scripts = [];
   const localStorage = storage([['dsh.conversation.same-id', 'local draft'], ['third-party.preference', 'local preference']]);
   let reloaded = false;
   const win = {
-    crypto: webcrypto, atob, btoa, document: { baseURI: options.baseURI || 'http://localhost/mounted/' },
+    crypto: webcrypto, atob, btoa, document: {
+      baseURI: options.baseURI || 'http://localhost/mounted/',
+      createElement: () => ({ remove() {} }),
+      head: { appendChild(script) {
+        scripts.push(script.src);
+        queueMicrotask(() => options.scriptFailure ? script.onerror() : script.onload());
+      } },
+    },
     sessionStorage: storage([['dsh.remote-session.machine.v1', 'company']]), localStorage,
     location: { reload: () => { reloaded = true; } }, addEventListener: () => {},
     __DSH_TRANSPORT__: options.transport,
@@ -73,7 +81,7 @@ function fixture(options = {}) {
     },
   };
   installNativeTransport(win);
-  return { win, gateway, localStorage, calls, nativeCalls, localCalls, disposed: () => disposed, reloaded: () => reloaded };
+  return { win, gateway, localStorage, calls, nativeCalls, localCalls, scripts, disposed: () => disposed, reloaded: () => reloaded };
 }
 
 async function httpFixture(t, handler, options = {}) {
@@ -292,6 +300,7 @@ test('remote boot loads the target composition, including remote-only plugins, b
     assert.deepEqual(f.win.__DSH_BOOT__.batches[0].entries, [...coreEntries, 'dependent-ui']);
     assert.ok(f.win.__DSH_BOOT__.entries.every(entry => entry.url.startsWith('http://localhost/mounted/remote-session/api/resource/company/plugins/')));
     assert.equal(original.entries.length, entries.length, 'the local graph must stay intact');
+    assert.equal(f.scripts.length, 1, 'application bundles must finish while the boot gate is closed');
     assert.equal(f.win.__DSH_TRANSPORT__.rpc, undefined);
     assert.equal(f.win.__DSH_TRANSPORT__.streamBaseUrl, 'http://127.0.0.1:9000');
     assert.equal(f.reloaded(), false);
@@ -313,6 +322,19 @@ test('unavailable or incompatible remote boot restores local selection without o
       assert.ok(f.win.sessionStorage.getItem('dsh.remote-session.boot-failure.v1'));
     } finally { await f.gateway.dispose(); }
   }
+});
+
+test('an application script failure restores local selection before desktop activation', async () => {
+  const f = fixture({ scriptFailure: true });
+  try {
+    let activated = false;
+    void f.win.__DSH_BOOT_READY__.promise.then(() => { activated = true; });
+    await f.win.__DSH_BOOT_READY__.resolve();
+    assert.equal(f.scripts.length, 1);
+    assert.equal(f.win.sessionStorage.getItem('dsh.remote-session.machine.v1'), 'local');
+    assert.equal(f.reloaded(), true);
+    assert.equal(activated, false);
+  } finally { await f.gateway.dispose(); }
 });
 
 test('remote resources are revisioned registry artifacts, transferred in bounded chunks and isolated by source', async () => {

@@ -14,6 +14,8 @@
 
 启用界面资源缓存和并行下载以加快机器切换，需要两端都更新到 **1.2.3 或更新版本并重启 DSH**，无需更新 relay。
 
+远程模块加载失败后的自动返回本机修复，需要入口机器更新到 **1.2.4 或更新版本并重启 DSH**，建议两端保持相同版本。
+
 ```bat
 git clone https://github.com/gaolin89898/remote-session-plugin.git
 cd remote-session-plugin
