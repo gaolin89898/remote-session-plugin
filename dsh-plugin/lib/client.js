@@ -37,8 +37,35 @@ window.__ModuleLoader__.load({
           const selected = useSyncExternalStore(subscribe, getSnapshot);
           const frame = useRef(null), ready = useRef(false), detach = useRef(null);
           const source = useRef(`/workbuddy-accounts/?dsh=1#${selected}`);
+          const remote = !!window.__DSH_REMOTE_SESSION__?.peerId && window.__DSH_REMOTE_SESSION__.peerId !== 'local';
+          const [frameDocument, setFrameDocument] = useState(null), [error, setError] = useState(''), [attempt, setAttempt] = useState(0);
           useEffect(() => {
-            if (ready.current) frame.current.contentWindow.location.hash = selected;
+            if (!remote) return;
+            const abort = new AbortController(), blobs = [];
+            let active = true;
+            const read = async file => {
+              const response = await window.fetch(new URL('/workbuddy-accounts/' + file, document.baseURI).href, { signal: abort.signal });
+              if (!response.ok) throw new Error(response.status === 404 ? '请将远程电脑的 AI 工具箱更新到 0.1.9 或更新版本' : `读取远程 AI 工具箱失败：HTTP ${response.status}`);
+              return response;
+            };
+            setError(''); setFrameDocument(null); ready.current = false;
+            void (async () => {
+              const runtime = await (await read('runtime')).json();
+              if (runtime.protocol !== 1) throw new Error('远程 AI 工具箱版本不兼容，请更新插件');
+              // Browser iframe navigations bypass DSH's fetch transport. Fetch
+              // both resources through the host, then mount that exact build.
+              const [script, style] = await Promise.all(['accounts.js', 'index.css'].map(async file => (await read(file)).text()));
+              if (!active) return;
+              const asset = (text, type) => {
+                const url = URL.createObjectURL(new Blob([text], { type })); blobs.push(url); return url;
+              };
+              const js = asset(script, 'text/javascript'), css = asset(style, 'text/css');
+              setFrameDocument(`<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src blob:; style-src blob: 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self' data:; base-uri 'none'; form-action 'none'"><title>AI 工具箱</title><link rel="stylesheet" href="${css}"></head><body><div id="app"></div><script type="module" src="${js}"></script></body></html>`);
+            })().catch(cause => { if (active && cause.name !== 'AbortError') setError(cause.message); });
+            return () => { active = false; ready.current = false; abort.abort(); for (const url of blobs) URL.revokeObjectURL(url); };
+          }, [remote, attempt]);
+          useEffect(() => {
+            if (ready.current && frame.current) frame.current.contentWindow.location.hash = selected;
           }, [selected]);
           useEffect(() => () => detach.current?.(), []);
           const loaded = () => {
@@ -50,8 +77,10 @@ window.__ModuleLoader__.load({
             target.addEventListener('hashchange', changed);
             detach.current = () => target.removeEventListener('hashchange', changed);
           };
+          if (remote && !frameDocument) return h('div', { role: error ? 'alert' : 'status', style: { padding: 24, color: 'var(--dsw-alias-label-primary)' } },
+            error || '正在连接远程 AI 工具箱…', error && h('button', { onClick: () => setAttempt(value => value + 1), style: { marginLeft: 12 } }, '重新连接'));
           return h('iframe', {
-            ref: frame, onLoad: loaded, src: source.current, title: 'AI 工具箱',
+            ref: frame, onLoad: loaded, ...(remote ? { srcDoc: frameDocument } : { src: source.current }), title: 'AI 工具箱', 'data-ai-toolbox': '1',
             style: { display: 'block', width: '100%', height: '100%', flex: 1, border: 0, minWidth: 0, minHeight: 0 },
           });
         }

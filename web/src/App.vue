@@ -4,6 +4,7 @@ import { Alert as AAlert, Button as AButton, Input as AInput, InputPassword as A
 import { IconUserGroup, IconCalendar, IconFile, IconSafe, IconMoon, IconSun, IconPlus, IconCheckSquare, IconGift } from '@arco-design/web-vue/es/icon';
 import { KEY_STORAGE, useAccounts } from './useAccounts';
 import { followHostTheme } from './hostTheme';
+import { hostRuntime } from './hostRuntime';
 import Sidebar from './components/Sidebar.vue';
 import AccountView from './components/AccountView.vue';
 import ScheduleView from './components/ScheduleView.vue';
@@ -11,6 +12,7 @@ import LogsView from './components/LogsView.vue';
 import BenefitsView from './components/BenefitsView.vue';
 import AccountDialog from './components/AccountDialog.vue';
 
+const localStorage = hostRuntime.storage;
 const model = reactive(useAccounts());
 const views = ['accounts', 'tasks', 'rewards', 'settings', 'logs'];
 const readView = () => views.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'accounts';
@@ -20,7 +22,7 @@ const remarkAccount = ref(null), remark = ref(''), removeAccount = ref(null);
 const switchAccount = ref(null);
 const workspaceScrollbar = ref(null);
 const hostTheme = ref(false);
-const embedded = window.parent !== window && new URLSearchParams(location.search).get('dsh') === '1';
+const embedded = hostRuntime.embedded;
 watch([view, () => model.provider], ([page, provider]) => {
   if (page === 'tasks' && provider !== 'workbuddy') model.selectProvider('workbuddy');
 }, { immediate: true, flush: 'sync' });

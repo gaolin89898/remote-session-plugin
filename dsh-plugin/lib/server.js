@@ -34,10 +34,60 @@ function json(res, status, error) {
   res.end(JSON.stringify({ error }));
 }
 
+async function readBody(req, res, limit) {
+  const chunks = [];
+  let size = 0;
+  try {
+    for await (const chunk of req) {
+      size += chunk.length;
+      if (size > limit) { json(res, 413, '上传文件过大'); return null; }
+      chunks.push(chunk);
+    }
+  } catch {
+    if (!res.destroyed) json(res, 400, '请求正文读取失败');
+    return null;
+  }
+  return Buffer.concat(chunks);
+}
+
+function apiRoute(value) {
+  if (typeof value !== 'string' || value.length > 8192 || value.includes('#')) return null;
+  const [path] = value.split('?');
+  return /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(path) ? value : null;
+}
+
 export function createHandler({ backendPort = 7863 } = {}) {
   if (!Number.isInteger(backendPort) || backendPort < 1 || backendPort > 65535) throw new Error('backendPort must be an integer from 1 to 65535');
-  // Only the port is configurable. No remote URL, credentials or redirect target.
+  // Each machine keeps its Go service on loopback. DSH carries the registered
+  // plugin route to the selected machine; this is never an arbitrary URL proxy.
   const backend = `http://127.0.0.1:${backendPort}`;
+  async function forward(req, res, { path, method, authorization, contentType, body }) {
+    if (!/^Bearer \S+$/i.test(authorization) || authorization.length > 8192) return json(res, 401, '请输入当前电脑账号服务的管理密钥');
+    if (!apiRoute(path)) return json(res, 400, 'Invalid API path');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 330_000);
+    const disconnected = () => { if (!res.writableEnded) controller.abort(); };
+    res.once('close', disconnected);
+    try {
+      const upstream = await fetch(`${backend}/panel/api/${path}`, {
+        method, redirect: 'manual', signal: controller.signal,
+        headers: { authorization, 'content-type': contentType || 'application/json' },
+        body: method === 'POST' ? body : undefined,
+      });
+      if (upstream.status >= 300 && upstream.status < 400) return json(res, 502, '账号服务返回了不支持的重定向');
+      const response = Buffer.from(await upstream.arrayBuffer());
+      if (res.destroyed) return;
+      res.writeHead(upstream.status, {
+        'content-type': upstream.headers.get('content-type') || 'application/json', 'cache-control': 'no-store',
+      });
+      res.end(response);
+    } catch {
+      if (!res.destroyed) json(res, 502, `无法连接当前电脑的账号服务（127.0.0.1:${backendPort}），请确认该电脑的后端已启动`);
+    } finally {
+      clearTimeout(timeout);
+      res.off('close', disconnected);
+    }
+  }
   return async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -45,6 +95,29 @@ export function createHandler({ backendPort = 7863 } = {}) {
     const url = new URL(req.url, 'http://local.invalid');
     if (!url.pathname.startsWith(PREFIX)) return json(res, 404, 'Not found');
     const relative = url.pathname.slice(PREFIX.length);
+    if (relative === 'runtime' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+      return res.end(JSON.stringify({ protocol: 1 }));
+    }
+    if (relative === 'bridge') {
+      if (req.method !== 'POST') return json(res, 405, 'Method not allowed');
+      if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) return json(res, 415, 'Expected JSON');
+      const raw = await readBody(req, res, 44 * 1024 * 1024);
+      if (raw === null) return;
+      let input;
+      try { input = JSON.parse(raw); } catch { return json(res, 400, 'Invalid bridge request'); }
+      if (!input || !['GET', 'POST'].includes(input.method) || !apiRoute(input.path)
+        || typeof input.authorization !== 'string'
+        || (input.contentType != null && (typeof input.contentType !== 'string' || input.contentType.length > 512 || /[\r\n]/.test(input.contentType)))
+        || (input.body !== undefined && (input.method !== 'POST' || typeof input.body !== 'string'
+          || input.body.length > 44 * 1024 * 1024 || input.body.length % 4 || /[^A-Za-z0-9+/=]/.test(input.body)))) {
+        return json(res, 400, 'Invalid bridge request');
+      }
+      const body = input.body === undefined ? undefined : Buffer.from(input.body, 'base64');
+      if (body?.length > 32 * 1024 * 1024) return json(res, 413, '上传文件不能超过 32 MB');
+      if (body && body.toString('base64') !== input.body) return json(res, 400, 'Invalid bridge body');
+      return forward(req, res, { ...input, body });
+    }
     if (!relative.startsWith('api/')) {
       const file = relative || 'index.html';
       if (!assets.has(file) || !['GET', 'HEAD'].includes(req.method)) return json(res, 404, 'Not found');
@@ -59,43 +132,13 @@ export function createHandler({ backendPort = 7863 } = {}) {
       } catch { return json(res, 503, '页面尚未构建，请运行 npm run build'); }
     }
     if (!['GET', 'POST'].includes(req.method)) return json(res, 405, 'Method not allowed');
+    // Fixed prefix + plain path prevents encoded traversal outside /panel/api/.
+    const path = relative.slice(4) + url.search;
+    if (!apiRoute(path)) return json(res, 400, 'Invalid API path');
     const authorization = req.headers.authorization || '';
     if (!/^Bearer \S+$/i.test(authorization)) return json(res, 401, '请输入本机服务的管理密钥');
-    // Fixed prefix + plain path prevents encoded traversal outside /panel/api/.
-    const apiPath = relative.slice(4);
-    if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(apiPath)) return json(res, 400, 'Invalid API path');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 330_000);
-    const disconnected = () => { if (!res.writableEnded) controller.abort(); };
-    res.once('close', disconnected);
-    try {
-      const chunks = [];
-      let size = 0;
-      for await (const chunk of req) {
-        size += chunk.length;
-        if (size > 32 * 1024 * 1024) return json(res, 413, '上传文件不能超过 32 MB');
-        chunks.push(chunk);
-      }
-      // Forward only the Bearer key and content type. Browser cookies and proxy
-      // headers never reach Go. The local-origin fence above runs first.
-      const upstream = await fetch(`${backend}/panel/api/${apiPath}${url.search}`, {
-        method: req.method, redirect: 'manual', signal: controller.signal,
-        headers: { authorization, 'content-type': req.headers['content-type'] || 'application/json' },
-        body: req.method === 'POST' ? Buffer.concat(chunks) : undefined,
-      });
-      if (upstream.status >= 300 && upstream.status < 400) return json(res, 502, '本机服务返回了不支持的重定向');
-      const body = Buffer.from(await upstream.arrayBuffer());
-      if (res.destroyed) return;
-      res.writeHead(upstream.status, {
-        'content-type': upstream.headers.get('content-type') || 'application/json',
-        'cache-control': 'no-store',
-      });
-      res.end(body);
-    } catch {
-      if (!res.destroyed) json(res, 502, `无法连接本机账号服务（127.0.0.1:${backendPort}），请确认后端已启动`);
-    } finally {
-      clearTimeout(timeout);
-      res.off('close', disconnected);
-    }
+    const body = await readBody(req, res, 32 * 1024 * 1024);
+    if (body === null) return;
+    return forward(req, res, { path, method: req.method, authorization, contentType: req.headers['content-type'], body });
   };
 }

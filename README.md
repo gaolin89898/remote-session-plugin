@@ -143,7 +143,7 @@ flowchart LR
     Pool --> State["本地状态 / 可选 Redis 镜像"]
 ```
 
-DSH 只提供页面和本机接口桥接，后台任务由同一台电脑上的 Go 账号服务执行。网关模式的聊天请求在出站前经过 `internal/upstream/payload.go` 处理，包括流式归一、角色与工具参数兼容、思维链配置、推理内容回填和指纹脱敏。
+DSH 提供页面和接口桥接，后台任务由目标电脑上的 Go 账号服务执行；远程会话通过 DSH 已注册接口转发，目标后端仍使用回环地址。网关模式的聊天请求在出站前经过 `internal/upstream/payload.go` 处理，包括流式归一、角色与工具参数兼容、思维链配置、推理内容回填和指纹脱敏。
 
 ## 快速开始
 
@@ -152,7 +152,7 @@ DSH 只提供页面和本机接口桥接，后台任务由同一台电脑上的 
 - Go ≥ 1.22.5（从源码构建后端时需要）；已有二进制可直接运行。
 - 修改前端时需要 Node.js 20.19+（20.x）或 22.12+；未修改前端时可使用仓库中已构建的 Go 内嵌资源。
 - Windows 桌面窗口依赖 Microsoft Edge WebView2 Runtime；Trae 直接登录需要本机 Edge / Chrome 和桌面环境。
-- Docker / Docker Compose 为可选部署方式。DSH 插件及 Windows 客户端切换需要后端运行在同一台电脑。
+- Docker / Docker Compose 为可选部署方式。DSH 插件在当前选中的电脑访问当地后端；Windows 客户端切换操作对应电脑上的客户端。
 
 ### Windows 单文件运行
 
@@ -202,17 +202,17 @@ go test ./...
 
 ### DSH 插件
 
-当前插件版本为 **0.1.8**。在 `dsh-plugin` 目录构建、检查并打包：
+当前插件版本为 **0.1.9**。在 `dsh-plugin` 目录构建、检查并打包：
 
 ```powershell
 npm --prefix ../web ci
 npm run build
 npm test
 npm pack
-dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.8.tgz"
+dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.9.tgz"
 ```
 
-独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端仍需单独在本机运行，安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。
+独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端需在目标电脑单独运行。使用远程会话插件 1.2.2 或更新版本时，页面、账号统计、设置与客户端操作跟随当前电脑；目标电脑也需安装 AI 工具箱 0.1.9 或更新版本。各电脑密钥和备注独立保存，连接失败会报错，不回退显示本机数据。安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。
 
 ### Docker Compose
 
