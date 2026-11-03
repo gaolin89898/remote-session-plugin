@@ -4,8 +4,8 @@ import { Button as AButton, Switch as ASwitch, Select as ASelect, Option as AOpt
 import { IconCheck, IconClockCircle, IconUser, IconMinusCircle, IconArrowRight, IconCalendar } from '@arco-design/web-vue/es/icon';
 import { chinaDate, clockTime, formatHour } from '../useAccounts';
 
-const props = defineProps({ model: Object });
-const emit = defineEmits(['navigate']);
+const props = defineProps({ model: Object, embedded: Boolean });
+const emit = defineEmits(['navigate', 'key']);
 const draft = reactive({ checkin_enabled: true, checkin_hours: [9, 21], refresh_after_checkin: true, catchup_on_start: true });
 const hours = Array.from({ length: 24 }, (_, index) => index);
 function reset() {
@@ -30,13 +30,13 @@ const history = computed(() => Array.from({ length: 7 }, (_, index) => {
 
 <template>
   <section class="schedule-view">
-    <header class="page-heading"><div><div class="eyebrow">AUTOMATION · 签到设置</div><h1>签到设置</h1><p>WorkBuddy 与 Trae 共用以下时刻，服务需保持在线。</p></div><a-button class="desktop-text" :disabled="!model.pending.length" :loading="model.busy.has('checkin-all')" @click="model.checkinAll().catch(() => {})"><template #icon><icon-check /></template>全部签到</a-button></header>
+    <header class="page-heading"><div><div class="eyebrow">AUTOMATION · 签到设置</div><h1>签到设置</h1><p>WorkBuddy 与 Trae 共用以下时刻，服务需保持在线。</p></div><div class="heading-actions"><a-button v-if="embedded" @click="emit('key')">管理密钥</a-button><a-button class="desktop-text" :disabled="!model.pending.length" :loading="model.busy.has('checkin-all')" @click="model.checkinAll().catch(() => {})"><template #icon><icon-check /></template>全部签到</a-button></div></header>
     <div class="settings-grid">
       <form class="schedule-form" @submit.prevent="save">
-        <div class="form-top inline-between"><div><h2>每日自动签到</h2><p>在设定时刻自动为可签到账号运行。</p></div><a-switch v-model="draft.checkin_enabled" aria-label="每日自动签到" /></div>
+        <div class="form-top inline-between"><div><h2>每日自动签到</h2><p>在设定时刻自动为可签到账号运行。</p></div><a-switch v-model="draft.checkin_enabled" checked-text="开" unchecked-text="关" aria-label="每日自动签到" /></div>
         <section class="form-section"><div class="inline-between"><h3>签到时刻</h3><small>北京时间 · 0–23 点</small></div><div class="hour-tags"><a-tag v-for="hour in draft.checkin_hours" :key="hour" :closable="draft.checkin_hours.length > 1" @close="draft.checkin_hours = draft.checkin_hours.filter(h => h !== hour)"><icon-clock-circle />{{ formatHour(hour) }}</a-tag><a-select :key="draft.checkin_hours.join(',')" placeholder="添加时刻" class="hour-picker" aria-label="添加签到时刻" @change="addHour"><a-option v-for="hour in hours.filter(h => !draft.checkin_hours.includes(h))" :key="hour" :value="hour">{{ formatHour(hour) }}</a-option></a-select></div></section>
         <section class="form-section"><h3>账号范围</h3><div class="scope-row"><span class="scope-icon"><icon-user /></span><div><strong>参与签到</strong><p>{{ model.providerName }} · {{ model.eligible.length }} 个可签到账号 · 停用账号自动跳过</p></div></div><div class="scope-row"><span class="scope-icon muted"><icon-minus-circle /></span><div><strong>自动跳过</strong><p>不支持签到的账号，以及 WorkBuddy 国际版与企业版</p></div></div></section>
-        <section class="form-section options-section"><h3>其他选项</h3><label class="switch-row"><span><strong>签到后自动刷新积分</strong><small>使用最新余额更新账号列表</small></span><a-switch v-model="draft.refresh_after_checkin" aria-label="签到后自动刷新积分" /></label><label class="switch-row"><span><strong>启动时补签当天未签到的账号</strong><small>程序重启后自动补齐</small></span><a-switch v-model="draft.catchup_on_start" aria-label="启动时补签当天未签到的账号" /></label></section>
+        <section class="form-section options-section"><h3>其他选项</h3><label class="switch-row"><span><strong>签到后自动刷新积分</strong><small>使用最新余额更新账号列表</small></span><a-switch v-model="draft.refresh_after_checkin" checked-text="开" unchecked-text="关" aria-label="签到后自动刷新积分" /></label><label class="switch-row"><span><strong>启动时补签当天未签到的账号</strong><small>程序重启后自动补齐</small></span><a-switch v-model="draft.catchup_on_start" checked-text="开" unchecked-text="关" aria-label="启动时补签当天未签到的账号" /></label></section>
         <footer class="form-footer"><span><icon-check />{{ model.savedAt ? `上次保存 ${clockTime(model.savedAt).slice(0, 5)}` : '北京时间 · Asia/Shanghai' }}</span><div><a-button type="text" @click="reset">取消</a-button><a-button type="primary" html-type="submit" :loading="model.busy.has('schedule')" :disabled="!model.schedule"><template #icon><icon-check /></template>保存设置</a-button></div></footer>
       </form>
       <aside class="settings-side">

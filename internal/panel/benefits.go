@@ -32,8 +32,6 @@ func (p *Panel) benefitAccountStatuses() []benefitAccountStatus {
 			item.BenefitsReason = "国际版暂不支持个人任务和活动奖励"
 		case a.IsEnterprise():
 			item.BenefitsReason = "企业账号不支持个人任务和活动奖励"
-		case a.IsEnterpriseSession():
-			item.BenefitsReason = "当前凭证属于企业会话，需要以国内版个人身份重新登录"
 		case status.Disabled:
 			item.BenefitsReason = "账号已停用，请先启用账号"
 		default:
@@ -64,7 +62,9 @@ func (p *Panel) personalBenefit(next http.HandlerFunc) http.HandlerFunc {
 		if a == nil {
 			return
 		}
-		if a.IsGlobal() || a.IsEnterprise() || a.IsEnterpriseSession() {
+		// A token issued by an enterprise switch does not make this an enterprise
+		// account. Let upstream decide eligibility and task progress.
+		if a.IsGlobal() || a.IsEnterprise() {
 			writeErr(w, http.StatusBadRequest, "任务与活动奖励仅支持 WorkBuddy 国内版个人身份账号")
 			return
 		}

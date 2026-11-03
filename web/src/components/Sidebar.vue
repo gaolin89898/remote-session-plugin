@@ -1,18 +1,18 @@
 <script setup>
 import { Button as AButton, Tooltip as ATooltip } from '@arco-design/web-vue';
-import { IconUserGroup, IconCalendar, IconFile, IconSafe, IconMoon, IconSun, IconClockCircle, IconCheckSquare, IconGift, IconBarChart } from '@arco-design/web-vue/es/icon';
+import { IconUserGroup, IconCalendar, IconFile, IconSafe, IconMoon, IconSun, IconClockCircle, IconCheckSquare, IconGift } from '@arco-design/web-vue/es/icon';
 import { clockTime, formatHour } from '../useAccounts';
 
-defineProps({ model: Object, view: String, dark: Boolean });
+defineProps({ model: Object, view: String, dark: Boolean, hostTheme: Boolean });
 const emit = defineEmits(['navigate', 'key', 'theme']);
-const tabs = [{ id: 'accounts', name: '账号', icon: IconUserGroup }, { id: 'tasks', name: '任务中心', icon: IconCheckSquare }, { id: 'credits', name: '积分明细', icon: IconBarChart }, { id: 'rewards', name: '活动奖励', icon: IconGift }, { id: 'settings', name: '签到设置', icon: IconCalendar }, { id: 'logs', name: '运行日志', icon: IconFile }];
+const tabs = [{ id: 'accounts', name: '账号', icon: IconUserGroup }, { id: 'tasks', name: '任务中心', icon: IconCheckSquare }, { id: 'rewards', name: '活动奖励', icon: IconGift }, { id: 'settings', name: '签到设置', icon: IconCalendar }, { id: 'logs', name: '运行日志', icon: IconFile }];
 </script>
 
 <template>
   <aside class="sidebar">
     <div class="sidebar-top">
       <a class="brand" href="#accounts" @click.prevent="emit('navigate', 'accounts')">
-        <span class="brand-mark">A</span><span><strong>账号控制台</strong><small>WorkBuddy · Trae · Qoder</small></span>
+        <span class="brand-mark">A</span><span><strong>AI 工具箱</strong><small>WorkBuddy · Trae · Qoder</small></span>
       </a>
       <nav class="side-navigation" aria-label="主导航">
         <span class="nav-caption">工作台</span>
@@ -29,7 +29,7 @@ const tabs = [{ id: 'accounts', name: '账号', icon: IconUserGroup }, { id: 'ta
     <div class="sidebar-footer">
       <div class="inline-between connection"><span><i :class="['status-dot', { offline: !model.connected }]" />{{ model.connected ? '服务已连接' : '未连接' }}</span><small>127.0.0.1</small></div>
       <div class="side-version">{{ model.overview.version || 'WorkBuddy' }} · Asia/Shanghai</div>
-      <div class="footer-buttons"><a-button long class="key-button" @click="emit('key')"><template #icon><icon-safe /></template>管理密钥</a-button><a-tooltip :content="dark ? '切换浅色主题' : '切换深色主题'"><a-button class="theme-button" :aria-label="dark ? '切换浅色主题' : '切换深色主题'" @click="emit('theme')"><template #icon><icon-sun v-if="dark" /><icon-moon v-else /></template></a-button></a-tooltip></div>
+      <div class="footer-buttons"><a-button long class="key-button" @click="emit('key')"><template #icon><icon-safe /></template>管理密钥</a-button><a-tooltip v-if="!hostTheme" :content="dark ? '切换浅色主题' : '切换深色主题'"><a-button class="theme-button" :aria-label="dark ? '切换浅色主题' : '切换深色主题'" @click="emit('theme')"><template #icon><icon-sun v-if="dark" /><icon-moon v-else /></template></a-button></a-tooltip></div>
     </div>
   </aside>
 </template>

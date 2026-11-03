@@ -160,7 +160,8 @@ export function useAccounts() {
     const key = localStorage.getItem(KEY_STORAGE);
     if (key) headers.set('Authorization', 'Bearer ' + key);
     if (typeof options.body === 'string') headers.set('Content-Type', 'application/json');
-    const response = await fetch('/panel/api/' + path, { signal: abort.signal, ...options, headers });
+    const apiBase = new URL(import.meta.env.BASE_URL + 'api/', document.baseURI);
+    const response = await fetch(new URL(path, apiBase), { signal: abort.signal, ...options, headers });
     const data = await response.json().catch(() => ({}));
     if (response.status === 401) { needsKey.value = true; throw new Error('请填写有效的管理密钥'); }
     if (!response.ok) throw new Error(data.error || `请求失败：HTTP ${response.status}`);

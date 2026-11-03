@@ -147,6 +147,6 @@
   .reward-grid { grid-template-columns: minmax(0, 1fr); }
   .reward-item { min-height: 230px; }
   .reward-bottom .benefit-primary { min-height: 200px; }
-  .mobile-navigation { overflow-x: auto; grid-template-columns: repeat(7, minmax(0, 1fr)); padding-inline: 4px; }
+  .mobile-navigation { overflow-x: auto; grid-template-columns: repeat(6, minmax(0, 1fr)); padding-inline: 4px; }
   .mobile-navigation .arco-icon { font-size: 18px; padding-inline: 8px; }
 }

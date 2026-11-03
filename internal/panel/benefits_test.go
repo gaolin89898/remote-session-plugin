@@ -56,7 +56,7 @@ func TestBenefitRoutesScopeAndAuthentication(t *testing.T) {
 			t.Errorf("unauthenticated %s: %d", route.path, w.Code)
 		}
 	}
-	for _, uid := range []string{"global", "enterprise", "enterprise-session", "missing"} {
+	for _, uid := range []string{"global", "enterprise", "missing"} {
 		want := 400
 		if uid == "missing" {
 			want = 404
@@ -92,7 +92,7 @@ func TestBenefitOverviewEligibility(t *testing.T) {
 		t.Fatalf("account count: %d", len(out.Accounts))
 	}
 	for _, a := range out.Accounts {
-		if a.BenefitsSupported != (a.UID == "personal") {
+		if a.BenefitsSupported != (a.UID == "personal" || a.UID == "enterprise-session") {
 			t.Errorf("eligibility for %s: %v", a.UID, a.BenefitsSupported)
 		}
 		if !a.BenefitsSupported && a.BenefitsReason == "" {
@@ -123,7 +123,7 @@ func TestBenefitRewardsQueryPreservesPartialErrors(t *testing.T) {
 			http.Error(w, "unexpected", 500)
 		}
 	})
-	w := benefitRequest(p, "GET", "benefits/accounts/personal/rewards", "")
+	w := benefitRequest(p, "GET", "benefits/accounts/enterprise-session/rewards", "")
 	var out struct {
 		Streak       *upstream.StreakFull         `json:"streak"`
 		Chances      *int                         `json:"chances"`
@@ -182,5 +182,28 @@ func TestBenefitMutationsRecheckAvailabilityAndLocks(t *testing.T) {
 	}
 	if mutations.Load() != 0 {
 		t.Fatal("sent an ineligible mutation")
+	}
+}
+
+// A switched session is still a personal account. Queries and claims must
+// reach upstream, and an upstream rejection must not become a local success.
+func TestBenefitSwitchedSessionUsesUpstreamEligibility(t *testing.T) {
+	var calls atomic.Int32
+	p := benefitTestPanel(t, func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		http.Error(w, "reward unavailable", http.StatusForbidden)
+	})
+	for _, route := range []struct{ method, path, body string }{
+		{"GET", "accounts/enterprise-session/tasks", ""},
+		{"POST", "accounts/enterprise-session/tasks/accept", `{"task_codes":["chat_5"]}`},
+		{"POST", "accounts/enterprise-session/tasks/claim", `{"task_code":"chat_5"}`},
+		{"POST", "accounts/enterprise-session/tasks/auto", `{"task_code":"chat_5"}`},
+		{"POST", "benefits/accounts/enterprise-session/rewards", `{"action":"compensation"}`},
+	} {
+		before := calls.Load()
+		w := benefitRequest(p, route.method, route.path, route.body)
+		if w.Code != http.StatusBadGateway || calls.Load() <= before {
+			t.Errorf("%s: status=%d upstream calls=%d", route.path, w.Code, calls.Load()-before)
+		}
 	}
 }

@@ -4,6 +4,7 @@ import App from './App.vue';
 import './style.css';
 import './desktop.css';
 import './benefits.css';
+import './host-theme.css';
 import { initializeDesktop } from './desktop';
 
 initializeDesktop();

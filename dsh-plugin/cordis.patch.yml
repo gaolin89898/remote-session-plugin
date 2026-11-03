@@ -1,0 +1,5 @@
+- insert:
+    - id: workbuddy-accounts
+      name: dsh-workbuddy-accounts
+      config:
+        backendPort: 7863

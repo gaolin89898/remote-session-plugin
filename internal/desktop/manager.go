@@ -93,7 +93,7 @@ func (m *Manager) Status() ([]Client, *Job) {
 		c := Client{ID: id, Name: p.name, SavedUIDs: []string{}}
 		c.Available = regular(p.exe)
 		if !c.Available {
-			c.Reason = "未找到本机客户端（暂支持 Windows 默认安装位置）"
+			c.Reason = "未找到本机客户端，请确认已安装"
 		}
 		if c.Available {
 			c.CurrentUID, c.CurrentName = identity(p)

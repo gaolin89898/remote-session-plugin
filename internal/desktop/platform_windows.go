@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -46,6 +47,11 @@ func discover() map[string]profile {
 				}
 			}
 		}
+		if !regular(p.exe) {
+			if path := registeredClientExecutable(p); path != "" {
+				p.exe = path
+			}
+		}
 		out[id] = p
 	}
 	return out
@@ -60,6 +66,7 @@ func appPIDs(p profile) ([]uint32, error) {
 	var entry windows.ProcessEntry32
 	entry.Size = uint32(unsafe.Sizeof(entry))
 	var ids []uint32
+	var scanErr error
 	for err = windows.Process32First(h, &entry); err == nil; err = windows.Process32Next(h, &entry) {
 		if !strings.EqualFold(windows.UTF16ToString(entry.ExeFile[:]), filepath.Base(p.exe)) {
 			continue
@@ -69,21 +76,46 @@ func appPIDs(p profile) ([]uint32, error) {
 			if e == windows.ERROR_INVALID_PARAMETER {
 				continue
 			} // Exited during enumeration.
-			return nil, fmt.Errorf("无法访问客户端进程，请让面板与客户端使用相同权限运行")
+			scanErr = fmt.Errorf("无法访问客户端进程，请让面板与客户端使用相同权限运行")
+			continue
 		}
 		image, e := processImagePath(proc)
 		windows.CloseHandle(proc)
 		if e != nil {
-			return nil, fmt.Errorf("无法核对客户端进程路径（PID %d），已停止切换：%w", entry.ProcessID, e)
+			scanErr = fmt.Errorf("无法核对客户端进程路径（PID %d），已停止切换：%w", entry.ProcessID, e)
+			continue
 		}
-		if image != "" && strings.EqualFold(filepath.Clean(image), filepath.Clean(p.exe)) {
+		if sameClientImage(p, image) {
 			ids = append(ids, entry.ProcessID)
 		}
 	}
 	if err != windows.ERROR_NO_MORE_FILES {
-		return nil, fmt.Errorf("读取客户端进程列表失败")
+		return ids, fmt.Errorf("读取客户端进程列表失败")
 	}
-	return ids, nil
+	return ids, scanErr
+}
+
+var qoderVersionDirectory = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+){1,3}(?:[-+][0-9A-Za-z.-]+)?$`)
+
+func sameClientImage(p profile, image string) bool {
+	if image == "" {
+		return false
+	}
+	if strings.EqualFold(filepath.Clean(image), filepath.Clean(p.exe)) {
+		return true
+	}
+	if p.id != "qoder" {
+		return false
+	}
+	// Qoder's stable launcher hands off to its installed update directory.
+	// Keep path verification scoped to that exact installation and layout.
+	relative, err := filepath.Rel(filepath.Dir(p.exe), filepath.Clean(image))
+	if err != nil {
+		return false
+	}
+	parts := strings.Split(relative, string(filepath.Separator))
+	return len(parts) == 3 && strings.EqualFold(parts[0], ".qoder-versions") &&
+		qoderVersionDirectory.MatchString(parts[1]) && strings.EqualFold(parts[2], filepath.Base(p.exe))
 }
 
 func processExited(process windows.Handle) bool {
@@ -108,7 +140,9 @@ func processImagePath(process windows.Handle) (string, error) {
 	return windows.UTF16ToString(buf[:n]), nil
 }
 
-func clientRunning(p profile) bool { ids, err := appPIDs(p); return err == nil && len(ids) > 0 }
+// Verified matching processes are enough for status. Switching still refuses
+// any enumeration error before closing a client or touching credentials.
+func clientRunning(p profile) bool { ids, _ := appPIDs(p); return len(ids) > 0 }
 
 var user32 = windows.NewLazySystemDLL("user32.dll")
 var enumWindows = user32.NewProc("EnumWindows")
@@ -167,7 +201,7 @@ func stopClient(ctx context.Context, p profile) error {
 		}
 		// Recheck the image after acquiring the handle (PID reuse protection).
 		image, e := processImagePath(h)
-		if e == nil && image != "" && strings.EqualFold(filepath.Clean(image), filepath.Clean(p.exe)) {
+		if e == nil && sameClientImage(p, image) {
 			e = windows.TerminateProcess(h, 0)
 		}
 		if e != nil && processExited(h) {
