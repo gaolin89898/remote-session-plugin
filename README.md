@@ -1,65 +1,3 @@
-## 账号管理与每日签到（当前默认模式）
-
-Windows 桌面版使用 `AccountsDesktop.exe`：双击直接打开 Vue / Arco Design 账号窗口，无需手动打开浏览器或输入本机管理密钥。前端和账号服务包含在同一个 EXE 中，使用系统 Microsoft Edge WebView2 Runtime；缺少运行时或启动失败会弹出错误提示，日志保存在账号数据目录的 `data/desktop.log`。优先使用 EXE 旁已有账号的配置；空目录启动时恢复记住的账号目录，位于 `data/releases/` 的构建也可识别原安装目录。数据目录位置保存在 `%APPDATA%/WorkBuddyAccounts/desktop-settings.json`，该文件只存配置路径，不存凭证。指定 `-config` 时严格使用该配置文件目录，不更改默认位置。首次使用且找不到已有账号时才在 EXE 旁创建空配置；打包不包含个人凭证。
-
-桌面版只监听本机回环地址。相同配置的账号服务已运行时自动连接，其他程序占用端口时使用空闲本机端口。关闭窗口会停止由该窗口启动的签到服务，独立运行的原有后台服务继续运行。浏览器授权链接通过系统浏览器打开。
-
-也可使用 DSH「AI 工具箱」插件（当前 **0.1.8**）。前端单独构建，本机 Go 后端继续负责账号、签到和状态持久化，更新插件页面无需重新编译 Go。点击 DSH 侧栏展开账号、任务中心、活动奖励、签到设置和运行日志菜单；页面与 Arco 滚动条跟随 DSH 主题，管理密钥入口在「签到设置」。构建与安装见 [dsh-plugin/README.md](dsh-plugin/README.md)。
-
-```powershell
-cd web
-npm ci
-npm run build
-cd ..
-go build -tags desktop -trimpath -ldflags "-s -w -H=windowsgui" -o AccountsDesktop.exe ./cmd/server
-```
-
-新增 **Qoder 国内版**：在「Qoder → 添加账号」中获取浏览器授权链接，用阿里云账号完成授权后自动保存；也支持 PAT / 访问令牌。可查询剩余积分、手动领取每日奖励、停用 / 启用和移除账号。浏览器授权凭证支持到期续期，单独保存在状态文件同目录的 `qoder-accounts.json`（默认 `data/`），含敏感凭证，请勿分享。
-
-Qoder 的[每日 100 Credits 活动](https://docs.qoder.cn/events/100credits)以北京时间 **10:00 至次日 10:00** 为一轮，奖励有效期 30 天，实际资格和活动是否继续由平台决定。与现有平台共用签到设置；早于 10 点的时刻对 Qoder 顺延至 10:00，同一时刻去重。仅从平台当前返回的有效日奖励中领取并回读确认，活动列表为空或结果不明确时会提示，不能视为已领取。
-
-Qoder 独立客户端（Windows `Qoder CN.exe`）已使用同一套「切换账号」按钮、确认窗口、任务进度和失败回滚。客户端至少启动并登录过一次以建立本机加密环境，之后面板内通过浏览器授权的账号可直接切换，不需要逐号保存快照。仅替换原生加密登录凭证并清除旧账号覆盖层，不改写本机设备码、项目、聊天数据库或浏览器数据。备份保存在 `data/desktop/backups/`。重启后检查新客户端会话中的账号请求结果及登录文件身份，无法核验时恢复原登录态。Qoder IDE 的 SQLite 登录格式暂未接入。
-
-Qoder OAuth、用量和活动接口参考 [TraeWorkAssistant](https://github.com/smart-open/TraeWorkAssistant) 的 `5113265866b8c6845cd651ee3ccee59b65debcbe` 版本，由本项目独立实现 Go 客户端；不执行其设备修改或历史活动 ID 兜底逻辑。
-
-直接运行程序会启动精简账号面板：浏览器登录、Cockpit JSON 导入、账号备注、停用 / 启用、移除、积分查询、单号 / 全部签到、签到时间设置和运行日志。
-
-当前页面保留账号、任务中心、活动奖励、签到设置和运行日志，已移除积分明细页面及入口；账号页仍显示余额并支持刷新积分。
-
-面板现支持 **WorkBuddy / Trae / Qoder** 三个平台，在页面顶部切换。Trae 国内版可在「添加账号 → Trae → 直接登录」打开独立的 Edge / Chrome 窗口，在官网完成登录后自动添加账号，无需手动复制 Token。直接登录须在运行面板的电脑上使用 `http://localhost:7863/panel/` 或 `http://127.0.0.1:7863/panel/` 访问，并已安装桌面版 Edge / Chrome；Linux 还需桌面显示环境。每次登录使用独立临时浏览器资料，登录完成、取消或 15 分钟超时后关闭并清理。远程部署可使用「登录凭证」粘贴 Session Cookie / Token，或者导入 TraeTools 账号备份（支持带口令的 AES-GCM 加密备份及原始 Accounts 配置 JSON）。Session 可用于自动续期 Token；会话本身过期后需重新登录。设备号支持 12 至 20 位数字 `x-device-id`，新账号留空时会分配并持久保存。
-
-「直接登录」现使用 Trae 国内版 OAuth 原生授权流程：每次授权创建独立的 15 位设备号、机器 ID 和 P-256 密钥对，通过 PKCE 交换凭证时提交设备公钥，授权成功后按账号保存身份。后续签到与积分查询使用该设备号，Token 续期用同一私钥签署 `DeviceProof`，保存轮换后的刷新凭证；不会被本地客户端设备号覆盖。点击账号行的「凭证 → 直接登录」可重新授权，后端会核对登录账号，账号不一致时取消更新，原账号 ID、备注和签到记录保留。旧账号需要重新授权才能获得新的设备绑定，登录本身不领取签到奖励。
-
-OAuth 流程参考 [朱天伟 / smart-open 的 TraeWorkAssistant](https://github.com/smart-open/TraeWorkAssistant)（MIT，协议参考版本 `5113265866b8c6845cd651ee3ccee59b65debcbe`，[issue #110](https://github.com/smart-open/TraeWorkAssistant/issues/110)），使用独立 Go 实现；此处仅接入账号登录、设备身份和签名续期。OAuth 回调仅监听本机 `127.0.0.1:17388`，端口被占用时会提示，完成 / 取消 / 超时后释放。设备私钥和刷新凭证仅保存在本地账号文件中，不通过面板接口或日志返回；备份该文件时应按登录凭证保护。
-
-使用 Session / Token 导入的旧账号仍支持客户端设备匹配：签到前读取运行面板电脑上的 Trae CN / TRAE SOLO CN 本地资料，仅在客户端登录账号与面板账号 ID 一致时使用其真实设备号，不导入本地 Token 或设备私钥；无匹配资料时保留原设备号。读取格式参考 [Magpie PR #333](https://github.com/magpie-community/plugins/pull/333)，使用独立 Go 实现。设备身份仍受平台签到规则约束：`9095` 表示设备今日已签到，不代表当前账号已签到；只有账号状态确认成功才显示已签到。`9074` 的具体原因尚未确认，单次签到操作遇到这两类错误后不会立即重试或自动更换设备。
-
-Trae 账号单独保存在 `data/trae-accounts.json`（跟随 `state_file` 目录），与 WorkBuddy 共用签到时刻、启动补签和签到后刷新积分设置。导入备份不会立即向平台发起签到，导入后可点击「刷新积分」验证登录态。Trae 接口和备份格式参考 [TraeTools](https://github.com/star620/TraeTools) 的 `35b20af` 版本，使用独立 Go 实现；这里不包含其 GitHub 云端部署功能。
-
-本机 Windows 账号页支持**切换实际客户端账号**。WorkBuddy 个人账号可直接点击「切换账号」，国内版和国际版分别定位 WorkBuddy / WorkBuddy AI，企业账号暂不支持。Trae 国内版采用原生登录态快照：每个账号首次在 Trae CN 客户端登录后，点击「保存当前登录态」，以后即可从对应账号行切换。保存时自动关联或添加面板账号，不覆盖已有的独立 OAuth 设备身份；新捕获账号仅导入当前访问凭证，长期自动续期仍需在「凭证」中独立授权。快照和原登录态备份保存在状态文件同目录的 `desktop/`（默认 `data/desktop/`），含敏感凭证，不应分享或提交。
-
-切换前需要保存工作并在页面确认退出和重启；客户端未正常退出时会结束该客户端的后台进程。后台串行执行备份、恢复、启动和身份核对，只有新客户端会话确认目标 UID 才显示成功；未确认时尝试自动恢复原登录态。Trae 仅恢复登录命名空间、原生设备资料和机器标识，不改写项目或聊天记录。切换不进行签到，也不生成虚拟设备码。安装路径通过默认目录和 Windows 安装记录（含自定义安装目录）识别；操作接口仅接受本机直连，远程面板不可控制服务端桌面。登录态格式与客户端版本相关，不兼容时会报错并保留备份。
-
-Trae CN 与 Qoder CN 的运行状态按客户端实际进程路径核对，兼容 Qoder 的 `.qoder-versions/<版本>/` 更新目录。进程在扫描期间退出会被跳过；无法核对路径或权限不足时，切换操作会停止并提示原因。
-
-```powershell
-go run ./cmd/server
-```
-
-打开 http://127.0.0.1:7863/panel/，管理密钥在首次启动自动生成的 `config.json` 的 `api_key` 字段中。也可以 `go build -o wb2api.exe ./cmd/server` 后运行。
-
-- 自动签到默认每天北京时间 **09:00、21:00**，启动时补签当天尚未签到的账号；程序需持续运行，关闭浏览器不影响签到。
-- 「签到设置」的开关开启为蓝底“开”、圆点在右，关闭为灰底“关”、圆点在左。点击「保存设置」后立即生效，保存在 `data/account-settings.json`（跟随 `state_file` 目录），重启后保留。
-- 自动调度仅执行签到和积分查询，签到前按需刷新登录凭证；旅行、活跃上报、成长任务和抽奖不会自动运行。
-- 「任务中心」支持扫描全部待办、接受任务、单项执行、执行全部待办和领取奖励，可查看执行队列及进度。执行可能发起模型请求并消耗积分，需要页面确认。任务与个人活动奖励仅支持 WorkBuddy 国内版个人身份，企业账号和国际版会显示原因。
-- 「活动奖励」展示连登兑换、官方补偿、抽奖机会和券码；进入页面只查询状态，领取、兑换和抽奖需手动操作。Qoder 每日奖励沿用现有领取接口。
-- 国际版和企业版账号可管理、查询额度，但不支持个人每日签到。停用账号不参与自动签到。
-- 默认模式不提供 `/v1/*` API，也不初始化网关用量统计、会话路由或 Redis。Docker 使用同一默认模式，健康检查无需先添加账号。
-
-下文为原项目文档。需要完整网关时显式运行 `go run ./cmd/server -gateway`。
-
----
-
 <p align="center">
   <img src="https://raw.githubusercontent.com/DGZSbot/ai-icon/refs/heads/main/WorkBuddy.png" alt="WorkBuddy2API" width="120">
 </p>
@@ -67,8 +5,8 @@ go run ./cmd/server
 <h1 align="center">WorkBuddy2API Panel</h1>
 
 <p align="center">
-  <b>把腾讯 CodeBuddy 账号变成 OpenAI 兼容 API 的多账号网关 · 附 Web 管理面板</b><br>
-  Web 面板 · OAuth 浏览器登录 · 账号池轮转 · 熔断与冷却 · 会话粘性 · 定时签到 / 活跃 / 旅行 / 保活 · <b>成长任务一键完成（17/18）</b> · 流式 / 非流式
+  <b>WorkBuddy · Trae · Qoder 账号管理与每日签到 · 可选 OpenAI 兼容网关</b><br>
+  AI 工具箱 · Windows 桌面窗口 · DSH 插件 · 账号切换 · 成长任务 · 活动奖励 · 状态持久化
 </p>
 
 <p align="center">
@@ -80,74 +18,42 @@ go run ./cmd/server
 
 ---
 
-> [!IMPORTANT]
-> **项目已停止维护（2026-10-21）**：后续不再更新代码、不跟进上游变化、不再处理新的 issue / PR。
->
-> 原因有三：
-> 1. **上游已开始禁用反代**——WorkBuddy 对非官方客户端的识别与拦截正在收紧（通道校验、账号限制等），反代通道的稳定性与存活周期已不可控，继续做适配意义有限；
-> 2. **个人精力有限**——本项目本就是个人自用工具，无力长期跟进协议变化与风控对抗；
-> 3. **非法转卖泛滥**——发现大量批量注册小号、对外售卖额度、二次加壳 / 卡密分发的滥用行为，与本项目初衷完全相悖。
->
-> 仓库保持现状可用（已合入的修复不会回退），但请自行评估风险：**上游随时可能彻底收紧导致不可用**；因使用非官方客户端导致的账号风控 / 封禁，由使用者自行承担。
->
-> **维护方式披露**：本仓库近期的 issue / PR 处置、代码审查、测试与修复实现**大量由 AI 辅助完成**（自动化编码 agent），合并与发布决策由维护者作出。请知悉后再使用或参与贡献。
-
-> **本项目是 [Sliverkiss/workbuddy2api](https://github.com/Sliverkiss/workbuddy2api) 的增强分支**（fork）。
-> 上游仓库现已删除；本项目**已同步至上游删库前的最后一次更新**（`ea8b1e5`），此后由本分支独立维护演进。
-> 在上游基础上重构了可视化运维层；差异概览见 [与上游的差异](#-与上游的差异)，上游设计的精巧之处（账号池调度、错误分类、提示词体系）原样保留，详见下文。
-
-> ⚠️ **本项目仅限自用账号（签到 / 保活 / 个人工具接入），不支持同时也是禁止批量小号分发额度、二次打包或收费售卖。** 详见 [使用声明（必读）](#使用声明必读)。
-
 ## 使用声明（必读）
 
-本项目（含上游 [Sliverkiss/workbuddy2api](https://github.com/Sliverkiss/workbuddy2api)，下同）的开发初衷只有一个：**方便个人管理自己的 CodeBuddy 账号**——自动签到、保活、给自己的本地工具提供一个 OpenAI 兼容入口。它是免费、开源、按「原样」提供的个人自用工具。
+本项目用于管理本人授权的 WorkBuddy / CodeBuddy、Trae 和 Qoder 账号，以及在本机或私有环境接入个人工具。请遵守各平台服务条款，不得用于批量注册、共享或转售账号额度、卡密分发及其他违规用途。
 
-近期我们发现有人将本项目用于以下行为：
-
-- **批量注册小号 / 收购账号，对外提供付费 API、共享池、代充等业务**；
-- **二次加壳、捆绑卡密（授权码）售卖**，或以「公益服」「低价中转」等名义变相收费分发。
-
-我们对上述行为**表达最强烈的反对**，并声明如下：
-
-1. **一切商用 / 售卖行为与本项目及作者无关。** 本项目不授权、不支持、不参与任何面向公众的 API 售卖、账号池出租、卡密收费分发；行为人由此产生的一切后果（包括但不限于账号封禁、条款违约与法律风险）由其自行承担，与作者和贡献者无任何关系。
-2. **批量注册与转售接口配额违反目标平台服务条款。** CodeBuddy / 腾讯系服务条款禁止批量注册账号及商业转售接口。上游仓库已删除、停止公开维护——我们无法断定具体原因，但此类滥用行为正在毁掉所有正常使用者的环境，请勿再消耗社区的善意。
-3. **请勿购买任何「收费版」「卡密版」「公益中转版」。** 本项目永远免费开源。任何加壳、加密、捆绑收费的「版本」都是他人篡改的产物，与本项目无关；且此类分发无法审计，存在被植入后门、回传并窃取你 CodeBuddy 凭证的风险（`auths/` 中保存的是明文 accessToken / refreshToken）。**你付钱买到的不是本项目，而是把自己账号交给陌生人的机会。**
-4. **关于开源协议的诚实说明。** 本项目基于 MIT 协议开源，协议允许自由使用与修改源码——这是开源的本意，我们不会收回；但 MIT 赋予的是代码层面的自由，**不赋予**以本项目名义宣传、售卖、捆绑分发，或要求作者提供支持与背书的权利。作者不为任何第三方分发版本提供支持、更新承诺或安全保证。
-5. **作者保留止损的权利。** 若滥用行为持续，作者可能随时停止维护、关闭或删除仓库，且不另行通知。上游的今天可能就是本项目的明天，望自重。
-
-如果你的用途是管理自己的账号，欢迎正常使用、反馈问题与提交 PR。
+代码采用 MIT 协议，允许的使用和再分发范围以 [LICENSE](LICENSE) 为准；该许可不授予任何平台接口或服务的使用权，也不代表作者对第三方收费版本提供支持或背书。账号凭证、客户端登录快照和管理密钥应由本人保管。平台接口、活动规则和账号资格可能变化，执行结果以平台回读状态为准。
 
 ## 项目简介
 
-WorkBuddy2API 是一个自托管的 **OpenAI 兼容反向代理网关**，将腾讯 CodeBuddy（`copilot.tencent.com`）账号包装为统一的 `/v1/chat/completions` 服务。
+WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **WorkBuddy / Trae / Qoder** 三个平台的账号、积分和每日签到，支持本机 Windows 客户端账号切换、WorkBuddy 成长任务与活动奖励。页面可通过浏览器、Windows 桌面窗口或 DSH 插件使用，账号和设置由 Go 后端持久保存。
 
-- 官方不提供 OpenAI 形态的开放 API，本项目通过 **OAuth 设备授权**（面板「添加账号」或 `login.sh`）获取账号凭证，在网关侧做 token 自动刷新、账号池调度与流量治理；
-- 面向 **个人多账号** 场景：多账号共享、单号故障自动换号、冷却 / 熔断防止雪崩、会话粘性保证多轮上下文不跳号；
-- 对客户端只暴露 OpenAI 兼容接口，现有 SDK / 前端 / 工具 **零改造接入**。
+直接运行程序进入账号管理模式；需要为个人工具提供 OpenAI 兼容接口时，使用同一程序加上 `-gateway`。
 
-> ⚠️ 合规须知：本项目是**非官方**网关，使用 CodeBuddy 账号作为上游，**仅限本人授权账号、本机 / 私有环境测试**。详细边界见[安全与合规](#安全与合规)。
+| 启动方式 | 页面与能力 | 自动运行 |
+|---|---|---|
+| 默认账号管理 | AI 工具箱：账号、任务中心、活动奖励、签到设置、运行日志；支持三个平台与本机客户端切换 | 按北京时间执行签到、按设置刷新积分和启动补签；任务与活动奖励手动执行 |
+| `-gateway` | WorkBuddy 账号池管理、用量、模型、配置与日志，以及 `/v1/*` 接口 | 按 `config.json` 中的排程运行签到、保活、旅行、活跃等任务 |
+
+默认模式不开放 `/v1/*`，不初始化网关用量统计、会话路由或 Redis。Trae / Qoder 账号管理和 DSH 插件连接默认账号服务；启用 WorkBuddy 网关不会为这两个平台增加 API 转发能力。
 
 ## 核心能力
 
 | 能力 | 说明 |
 |---|---|
-| 🔑 **OAuth 一键登录** | `login.sh` 设备授权流程，自动落盘凭证并重启容器加载新账号 |
-| 🔄 **多账号池** | 快过期积分加权 + 成本分层 + 加权随机选号，Top-5 候选 + 防惊群 |
-| 🛡️ **熔断与冷却** | 429 软冷却 600s 起指数退避（封顶 `soft_rate_max`）、404 固定 60s 短冷却、402 硬冷却至次日 04:00、连续失败熔断、在途租约限流 |
-| 🧲 **会话粘性** | 同一会话（`conversation_id`）尽量绑定同一账号，TTL 滚动续期，失败自动解绑，可镜像 Redis 防重启丢失 |
-| ⏰ **定时任务** | 签到（09/21 点，末尾自动跑**连登管家**：兑换已解锁档位 + 抽完抽奖次数）+ 活跃上报（10 点，点亮连登 / 解锁领养 + streak 自检）+ 猫猫旅行（09/21 点，独立排程）+ token 保活（22 点），四类独立开关 |
-| ⚡ **流式 + 非流式** | 出站强制 `stream:true`；SSE 帧按规范白名单重建；非流式由本地聚合为单响应 |
-| 🧠 **推理模型兼容** | DeepSeek 思维链注入（`thinking.type=enabled` + 默认档）、`reasoning_content` 多轮回填、effort 档位自动降级 |
-| 🔍 **联网搜索** | `POST /v1/search/messages` 把上游 `/agenttool/v1/search` 包成 Anthropic Messages 兼容形态（DSH 等客户端的搜索 provider 零改动接入）；复用账号池选号 / 在途租约 / token 刷新 / 错误冷却，出站请求头对齐官方客户端 |
-| 💬 **系统提示词体系** | 网关自有提示词替换客户端 system（默认 `custom`），从源头消灭 system 来源的内容误报；`passthrough` 遇拦截自动降级重试 |
-| 🗑️ **指纹脱敏** | 出站请求体黑名单指纹字段清洗（可关闭），与提示词体系两层叠加 |
-| 📊 **可观测** | 每请求一行表格日志（TTFB / token 速率 / uid）；`/healthz` 带 `service` 身份标识可接负载均衡 / 宿主探活 |
-| 💾 **状态持久化** | 池状态本地原子落盘 + Upstash Redis 异步镜像（可选），重启择新恢复 |
-| 🖥️ **Web 管理面板** | 内嵌单页面板（明暗主题，七个视图）：账号运维 / 用量与积分分析 / 模型档位条件查询 / 在线改配置（热生效）/ 运行日志（含**调用来源 IP·UA** 与时间区间）/ 积分任务，见 [Web 管理面板](#-web-管理面板) |
+| 多平台账号 | WorkBuddy 浏览器授权与 Cockpit JSON 导入；Trae 国内版直接登录、凭证及备份导入；Qoder 国内版浏览器授权或 PAT |
+| 积分与每日签到 | 单号 / 全部签到、余额刷新、停用 / 启用、备注；每日 09:00 / 21:00 默认时刻可修改，Qoder 按 10:00 活动轮次处理 |
+| 本机客户端切换 | Windows WorkBuddy / WorkBuddy AI、Trae CN、Qoder CN；登录态备份、重启后身份核验和失败回滚，支持自定义安装目录和 Qoder 更新目录 |
+| 成长任务与活动奖励 | WorkBuddy 国内版个人账号扫描待办、执行全部待办、查看队列、领取奖励；企业身份按实际账号属性判断，执行后回读进度 |
+| 状态持久化 | 凭证、账号状态、备注和签到设置保存在本地；网关模式额外支持用量归档及可选 Upstash Redis 镜像 |
+| 页面与 DSH 插件 | Vue / Arco Design 页面，适配深浅色和移动布局；DSH「AI 工具箱」使用原生下拉菜单，主题与 Arco 滚动条跟随宿主 |
+| OpenAI 兼容网关 | `-gateway` 下提供聊天补全、模型列表及 Anthropic Messages 兼容联网搜索；流式 / 非流式、推理内容、工具调用和模型档位兼容 |
+| 网关账号调度 | 快过期积分加权、成本分层、轮询 / 顺序耗尽、冷却 / 熔断、在途租约和会话粘性；国内版与国际版可独立配置 |
+| 网关运维 | 模型与积分包查询、用量和请求日志、配置热更新、独立任务排程、提示词处理及请求指纹脱敏 |
 
-## 🎯 成长任务一键完成（17/18）
+## 成长任务与活动奖励
 
-官方「成长计划」的 18 个成长任务中，**17 个可在面板上一键纯 API 完成**——无需安装官方客户端、无需人工交互，点一下「一键完成」即自动推进进度、等待异步计分落定并**自动领奖**。剩余任务展示操作指引。
+WorkBuddy 国内版个人账号可在「任务中心」扫描待办、执行单项或全部待办、接受任务及领取奖励。执行会先确认，部分动作会发起真实模型请求并消耗积分；后端等待异步计分并回读任务进度，达标后领取奖励。任务清单、奖励和账号资格以平台当前返回结果为准，Trae / Qoder 暂未接入成长任务。
 
 ### 任务覆盖与奖励
 
@@ -170,9 +76,9 @@ WorkBuddy2API 是一个自托管的 **OpenAI 兼容反向代理网关**，将腾
 | `Expert_lighthouse` | +100c +5e | 轻量云专家召唤+使用链（真实对话 requestId，**可免费领一个月轻量服务器**） |
 | `skill_1` | +100c +5e | 真实对话 + 技能加载事件（skill_info） |
 
-**全新账号一键全做完 ≈ +1950 credits +78 能量**，其中仅数个任务涉及真实对话（`Model_chat_GLM5.2` 一条、`expert_5`/`Expert_team_use_3`/`skill_1` 各数条 fast-model 短对话），其余全部为行为事件上报，零对话消耗。
+表中为已接入的任务动作及活动奖励示例，不保证每个账号都能领取。`Model_chat_GLM5.2`、专家与技能类任务可能涉及真实对话；重复执行仍需以任务当前进度和平台限制为准。
 
-### 不可自动的 1 个
+### 需要本人完成的任务
 
 | 任务 | 原因 |
 |---|---|
@@ -182,21 +88,19 @@ WorkBuddy2API 是一个自托管的 **OpenAI 兼容反向代理网关**，将腾
 
 任务计分走 `/v2/report` 行为上报，但**不同任务认不同客户端指纹**：CLI 指纹（`www.codebuddy.cn`）、桌面指纹（`copilot.tencent.com` + `WorkBuddy/5.5.6` UA + `workbuddy-desktop` 事件族）、web 指纹（`www.workbuddy.cn` + `x-client-platform: web`）。网关为每类任务构造对应指纹的判据事件链（`internal/upstream/desktop.go`）；专家类任务额外要求真实专家 id 与真实对话回执（`internal/upstream/streak.go` 之外的 expert 序列）。上报 200 ≠ 计分——面板在执行后轮询任务进度，达标即自动调用 Web 域领奖接口。
 
-> ⚠️ 行为事件按天幂等：重复点「一键完成」不会重复扣资源，已达标的任务自动跳过。
+已达标的任务会跳过，同一账号的任务操作串行执行；平台返回成功仍需任务进度回读确认，不能仅凭上报响应视为已完成。
 
-### 🧭 任务中心（面板新视图）
+### 任务中心
 
-「任务中心」视图把散落的任务能力收拢成一处：
-
-- **全账号任务扫描**：一键拉取每个账号的成长任务（未完成且可自动化的 19 项，含小程序口径的「校园日」与「小程序首对话」）+ 开学季待办，列表一目了然
-- **执行队列**：把待办按账号排队执行——账号内串行（与单任务/一键完成共用互斥锁），账号间可选并发（1-3）；执行进度实时更新到每个条目
-- **开学季独立状态卡**：每账号 5 任务（分享/桌面/对话×3/专家/学生认证）的状态矩阵 + 剩余抽奖次数，一键触发全账号闭环
-- **日志分频道**：运行日志按「任务 / 对话 / 系统」三个频道筛选——对话流量再大，任务结果也不会被冲掉；日志条目带频道徽标与时间
+- **扫描全部待办**：查询 WorkBuddy 国内版个人账号的可执行任务，停用账号和不支持的身份会跳过或显示原因。
+- **执行队列**：账号内串行，账号间可选 1–4 个并行；显示每项状态、完成进度和失败原因，支持单项执行及执行全部待办。
+- **任务筛选**：按待执行、待领取、已完成和失败筛选，已达标任务可单独领奖。
+- **运行日志**：查看任务执行结果；队列正在运行时避免重复提交。
 
 <details>
-<summary><b>🎒 开学季活动（5/5 全自动）</b>——活动期至 2026-09-24，已结束；逆向成果存档，点击展开</summary>
+<summary><b>开学季活动接口（已结束）</b>——活动期至 2026-09-24，点击查看接口与任务说明</summary>
 
-官方「AI 好 Buddy，开学有好礼」小程序活动的 5 个任务**全部纯 API 自动完成**（挂签到排程末尾，幂等）：
+以下记录已结束的「AI 好 Buddy，开学有好礼」活动接口，供协议和任务实现参考；账号管理模式不会把它挂在自动签到排程末尾：
 
 | 任务 | 奖励（每日） | 判据（已逆向） |
 |---|---|---|
@@ -206,7 +110,7 @@ WorkBuddy2API 是一个自托管的 **OpenAI 兼容反向代理网关**，将腾
 | 召唤开学季专家 | +50c +1抽奖 | viewed 后 mp 事件链（召唤×3 + 对话） |
 | 学生认证 | +100c | 需微信学生真实认证，不做 |
 
-抽奖次数自动全部抽完。期间逆向成果（cf-connect 加密通道、mp 云对话全链路）记录在 `data/desktop-task-protocol.md` §8。
+抽奖次数自动全部抽完。相关实现保留在任务与上游接口代码中，活动是否可用以平台返回为准。
 
 同一活动在成长任务中心还有两条**小程序口径**任务（`X-Client-Platform: miniprogram` 专属下发，默认列表不可见，各 +100c+5e）：
 
@@ -219,188 +123,136 @@ WorkBuddy2API 是一个自托管的 **OpenAI 兼容反向代理网关**，将腾
 
 </details>
 
-### 连登兑换与抽奖（自动）
+### 活动奖励
 
-成长中心连登档位（连续登录 7/14/28 天）兑换后发放积分 / 能量 / 补签卡 / **抽奖次数**，抽奖次数只能从兑换获得。网关把它挂在每日签到排程末尾自动跑闭环（见[定时任务](#定时任务)）：档位解锁当天自动兑换、有抽奖次数自动抽完，全程无需人工盯。
+默认账号管理模式在「活动奖励」展示 WorkBuddy 官方补偿、连登兑换、抽奖机会及券码。进入页面只查询状态，领取、兑换和抽奖需手动操作；Qoder 每日奖励使用当前有效活动接口，领取后回读确认。Trae 暂未接入额外活动奖励。
 
-## 🆚 与上游的差异
-
-本分支相对 [上游 master](https://github.com/Sliverkiss/workbuddy2api) 的增量（均已在真实多账号环境验证）：
-
-### 新增
-
-| 能力 | 说明 |
-|---|---|
-| **Web 管理面板** | `internal/panel`，前端 go:embed 单文件进二进制，零外部依赖。账号池可视化（健康色条 / 积分量条 / 冷却倒计时）、积分到期分布、单号运维、批量任务、日志查看、明暗主题 |
-| **请求指标与脱敏日志** | 面板展示完成成功率 / HTTP 成功率 / 平均耗时 / 最近请求，响应带 `X-Request-Id`；JSONL 只归档请求元数据，不写提示词、响应正文或凭证 |
-| **浏览器内 OAuth 添加账号** | 面板「添加账号」按钮完成设备授权 → 凭证落盘 → **热加载进池（免重启）**，替代命令行 `login.sh` 流程 |
-| **在线配置编辑（热生效）** | 面板直接改 `config.json`：API 密钥 / `soft_rate` / 脱敏开关 / 池参数 / 任务排程**立即生效**；装配期字段（listen 等）保存后提示需重启。写入采用深合并 + 原子替换，保留未知键 |
-| **积分任务体系** | 任务列表 / 接受 / 领取接口 + 面板弹窗；「一键完成」覆盖 **17 个任务**（对话 / 领养 / 桌面行为链 / 模板 / 灵感案例 / 画布 / 专家召唤 / 技能尝鲜 / 主题 / 资料库 / 夜猫子等），推进进度、等待异步计分落定后**自动领奖**，纯 API 零客户端依赖 |
-| **限时补偿可观测（issue #189）** | 官方补偿（例：「模型服务异常额外补偿 500 积分」）在账号侧可见，网关改为**先查 `compensation-status` 再决定是否领**：面板「官方补偿」卡片列出待领账号 + 领取截止倒计时（≤48h 标红）+ 逐号/全量领取按钮；**查询失败的账号在卡片上显形为红色行，不会与「没有补偿」混为一谈**；每日签到排程同步走「查→领」，**状态查询失败与领取失败一律显式告警**（旧实现把「没有 / 已领 / 领取失败」三态压成同一形态，带截止日的补偿会静默过期） |
-| **首启自动生成配置** | 目录下无 `config.json` 时自动生成推荐配置（含 `crypto/rand` 随机 `api_key`），双击即开 |
-| **粘性会话内容回退** | 客户端不发 `conversation_id` 时，用 `system + 首条 user` 哈希派生会话键（`d-` 前缀），通用 OpenAI 客户端也能享受粘性 |
-| **余额后台刷新** | `schedule.balance_refresh_minutes`（默认 5）周期查余额并更新池，冷却账号余额恢复自动解冻 |
-| **模型能力透出** | `/v1/models` 附带 `supported_efforts` / `default_effort` / 积分倍率 / 输入输出上限等上游真实字段 |
-| **安全加固** | 常量时间密钥比较（`internal/httpauth`）、CSP 与安全响应头、UID 白名单防路径穿越、前端属性转义修复 |
-| **领养前置修复** | 上游 `travelAdopt` 缺 report 前置导致领养恒失败于 `first_buddy task not completed yet`；本分支修正后实测 +300 到账（3/3 账号） |
-| **原生工具调用标记还原** | 上游（DeepSeek 系）的工具调用原生语法是带全角竖线的标记文本，**仅在请求声明了 `tools` 时**才被上游解析成结构化 `tool_calls`。实测 `tools` 声明在中转环节（Responses → chat/completions 等）丢失是常态，此时模型仍想调工具，标记就以纯文本落进 `content`——Codex 这类只执行结构化 `function_call` 的客户端会把它当普通正文写进会话历史，回合直接结束、工具一次都没跑。网关在出站响应里识别并还原成 `tool_calls`（流式与非流式都覆盖） |
-
-### 同步上游
-
-**第一轮（fork 基线 `53ee3a1` → `9a87758`，34 个提交）**：四类任务独立排程、pool 文件拆分、12153 连续计数才禁用、429 `code=6004` 模型级限流收窄、11101 不罚号、请求体 413、DeepSeek 思维链、reasoning_content 回填、Codex 指纹脱敏、系统提示词体系、出站 UA 可配等。
-
-**第二轮（`9a87758` → `ea8b1e5`，2026-09-14，只吸收底层）**：
-
-| 上游改动 | 吸收内容 |
-|---|---|
-| 净化增强 | `tool_calls.arguments` 盲区修复（content=null 的工具调用轮此前完全漏净化）、裸 `11128` 反探测改写、桌面版身份句（逗号形态）漏网修复、反馈句整句改写 |
-| 出站头族 | UA 对齐官方三段式 `WorkBuddy/<ver> WorkBuddy/<ver> CLI/<ver>`（默认 5.5.4/2.137.1，可配）；`X-IDE-*` 用量归属四头 + `X-Agent-Purpose`（`client_name` 配 `WorkBuddy` 即对齐官方桌面端）；`X-Device-Token` 设备风控头（auth 每号 / config / 文件三源）；`X-IDE-Version` 补齐 |
-| 并发修复 | 客户端 IP 改按请求参数传递（消除共享字段竞态）；billing 单段 UA 形态 |
-| 签到幂等 | `IsAlreadyCheckin` 识别"今天已签到"（code=10001/14001），调度日志不再把重复签到当失败 |
-| 粘性按模型判活 | 会话绑定的账号被 6004 模型级限额后，换模型请求自动解绑重分配（治"限额后换不动号"）；`/healthz` 探活计入模型豁免形态（治"全号被单模型限流探活误报 503"） |
-| report 增强 | `ReportChatActivity` 支持独立 `requestID`（同会话多轮上报各条可区分） |
-
-未吸收（明确不做）：脚本体系（task_runner/school 脚本—我们已有更完整的纯 API 实现）、governance/CI workflow、成本账本选号（依赖 usage.credit 观测，收益待验证）。
-
-> 上游仓库此后已删除，上述第二轮（`ea8b1e5`）即其**删库前的最后一次更新**，本分支已完整吸收。此后本仓库与上游不再有同步关系，演进以本仓库为准。
+网关模式可在签到排程末尾执行连登兑换与抽奖，见[定时任务](#定时任务)。该行为不适用于默认账号管理模式。
 
 ## 架构总览
 
 ```mermaid
 flowchart LR
-    Client["客户端 / SDK\nOpenAI 兼容请求"] --> H
-
-    subgraph GWI["WorkBuddy2API 网关 :7863"]
-        H["HTTP Handler\n鉴权 · 请求体上限 · 提示词改写 · 轮转"] --> P
-        H --> S
-        P["账号池\n快过期加权 · 成本分层 · 熔断 · 冷却 · 租约"] --> U
-        S["会话粘性路由"] -.绑定镜像.-> REDIS
-        T["定时调度\n签到 09/21 · 旅行 09/21 · 活跃 10 · 保活 22"] --> P
-        U["上游 Client\nChatHTTP 流式 · 短 RPC"]
-    end
-
-    P -. "读凭证 (0600)" .-> AUTH[("auths/*.json")]
-    P -. "状态镜像" .-> REDIS[("Upstash Redis\n可选")]
-    U -->|"chat/completions (SSE)"| CB["CodeBuddy\ncopilot.tencent.com"]
-    U -->|"billing / auth / growth"| CB
+    Browser["浏览器 / Windows 桌面窗口"] --> Panel["Go 账号管理服务"]
+    DSH["DSH AI 工具箱插件"] --> Bridge["本机同源接口桥接"] --> Panel
+    Panel --> Platforms["WorkBuddy / Trae / Qoder"]
+    Panel --> Local["本地凭证、账号状态与签到设置"]
+    Panel --> Desktop["Windows 本机客户端"]
+    SDK["个人工具 / OpenAI SDK"] --> Gateway["Go 网关服务 · -gateway"]
+    Gateway --> Pool["账号池、冷却、粘性与流量治理"] --> WorkBuddy["WorkBuddy 接口"]
+    Pool --> State["本地状态 / 可选 Redis 镜像"]
 ```
 
-上游请求在出站前经历统一的改写管线（`internal/upstream/payload.go`）：强制 `stream:true`、`developer` 角色归一、tool_choice 归一、`image_url` 字符串兼容为 OpenAI 对象形态、DeepSeek 思维链注入、`reasoning_effort` 档位降级、`reasoning_content` 回填、指纹脱敏。
+DSH 只提供页面和本机接口桥接，后台任务由同一台电脑上的 Go 账号服务执行。网关模式的聊天请求在出站前经过 `internal/upstream/payload.go` 处理，包括流式归一、角色与工具参数兼容、思维链配置、推理内容回填和指纹脱敏。
 
 ## 快速开始
 
 ### 环境要求
 
-- **Docker + Docker Compose**（服务端部署方式，镜像内已含低权限用户与全部工具脚本）——或
-- **Windows / macOS / Linux 直接跑单文件二进制**（无需 Docker，见下方「Windows 单文件运行」）
-- 一个或多个已注册的 CodeBuddy 账号，用于 OAuth 登录
-- 宿主机 Go ≥ 1.22（仅从源码构建时需要）
+- Go ≥ 1.22.5（从源码构建后端时需要）；已有二进制可直接运行。
+- 修改前端时需要 Node.js 20.19+（20.x）或 22.12+；未修改前端时可使用仓库中已构建的 Go 内嵌资源。
+- Windows 桌面窗口依赖 Microsoft Edge WebView2 Runtime；Trae 直接登录需要本机 Edge / Chrome 和桌面环境。
+- Docker / Docker Compose 为可选部署方式。DSH 插件及 Windows 客户端切换需要后端运行在同一台电脑。
 
-### 方式〇：GHCR 镜像（免克隆免构建）
-
-CI 会自动构建多架构镜像（`amd64` / `arm64`）并发布到 GHCR，`git clone` 之外的部署路径：
-
-```bash
-# 1. 准备配置与数据目录
-mkdir -p auths data && cp config.example.json config.json
-#    建议编辑 config.json 设置 api_key（或留空由程序自动生成随机密钥）
-
-# 2. 拉取并运行
-docker run -d --name workbuddy2api \
-  -p 7863:7863 -e TZ=Asia/Shanghai \
-  -v ./auths:/app/auths -v ./data:/app/data -v ./config.json:/app/config.json \
-  ghcr.io/linguo2625469/workbuddy2api-panel:latest
-
-# 3. 健康检查（无可用账号时返回 503）
-curl -s http://localhost:7863/healthz
-```
-
-> **首次发布后须将包设为公开**：GitHub 仓库页 → Packages → `workbuddy2api-panel` →
-> Package settings → Change visibility → Public，否则拉取需要 `docker login ghcr.io`。
->
-> 镜像 tag 规则：`main` 分支推送 `latest` / `main` / `sha-xxxxxx`；打 `v*` tag 额外发布
-> `1.2.3` / `1.2` / `1` 语义化版本；PR 仅构建验证、不推送。
-
-### 方式一：Docker Compose（推荐服务器部署）
-
-```bash
-# 1. 克隆
-git clone https://github.com/linguo2625469/workbuddy2api-panel.git
-cd workbuddy2api-panel
-
-# 2. 准备配置（compose 挂载此文件，缺失会导致容器启动失败）
-cp config.example.json config.json
-#    建议编辑 config.json 设置 api_key（或留空由程序自动生成随机密钥）
-
-# 3. 启动（首次会构建镜像，约 1-2 分钟）
-docker compose up -d --build
-
-# 4. 健康检查（无可用账号时返回 503）
-curl -s http://localhost:7863/healthz
-# {"healthy":0,"total":0,"service":"workbuddy2api"}
-```
-
-启动后打开 **`http://localhost:7863/panel/`**，用面板「添加账号」完成登录（见下节）。
-
-常用运维命令：
-
-```bash
-docker compose logs -f          # 跟踪日志
-docker compose restart          # 重启
-docker compose down             # 停止并移除容器（数据在 ./auths 与 ./data，不受影响）
-```
-
-### 方式二：Windows 单文件运行（无需 Docker）
+### Windows 单文件运行
 
 ```powershell
-# 1) 下载 Release 中的 wb2api.exe，或从源码构建
+# 从源码构建；也可使用可信构建产物
 go build -trimpath -ldflags="-s -w" -o wb2api.exe ./cmd/server
 
-# 2) 直接运行：首次启动自动生成 config.json（含随机 api_key，日志打印一次）
+# 本机使用时只监听回环地址
+$env:WB2A_LISTEN='127.0.0.1:7863'
 .\wb2api.exe -config config.json
-
-# 3) 浏览器打开面板添加账号
-#    http://127.0.0.1:7863/panel/
 ```
 
-exe 为**单文件自包含**（前端资源已 embed 进二进制），拷到任意 Windows 机器即可运行，只需保证 `auths/`（凭证）与 `data/`（状态）目录可写。
+打开 <http://127.0.0.1:7863/panel/>。首次启动缺少配置时自动生成 `config.json`，管理密钥位于 `api_key` 字段。账号、凭证和设置保存在本地，关闭浏览器不会停止独立运行的后端。
 
-### 方式三：源码运行（开发调试）
+### Windows 桌面窗口
+
+Windows 桌面版使用 `AccountsDesktop.exe`：双击直接打开 Vue / Arco Design 账号窗口，无需手动打开浏览器或输入本机管理密钥。前端和账号服务包含在同一个 EXE 中，使用系统 Microsoft Edge WebView2 Runtime；缺少运行时或启动失败会弹出错误提示，日志保存在账号数据目录的 `data/desktop.log`。优先使用 EXE 旁已有账号的配置；空目录启动时恢复记住的账号目录，位于 `data/releases/` 的构建也可识别原安装目录。数据目录位置保存在 `%APPDATA%/WorkBuddyAccounts/desktop-settings.json`，该文件只存配置路径，不存凭证。指定 `-config` 时严格使用该配置文件目录，不更改默认位置。首次使用且找不到已有账号时才在 EXE 旁创建空配置；打包不包含个人凭证。
+
+桌面版只监听本机回环地址。相同配置的账号服务已运行时自动连接，其他程序占用端口时使用空闲本机端口。关闭窗口会停止由该窗口启动的签到服务，独立运行的原有后台服务继续运行。浏览器授权链接通过系统浏览器打开。
+
+```powershell
+cd web
+npm ci
+npm run build
+cd ..
+go build -tags desktop -trimpath -ldflags "-s -w -H=windowsgui" -o AccountsDesktop.exe ./cmd/server
+```
+
+### 源码运行与前端构建
+
+```bash
+# 修改页面后重新生成 Go 内嵌资源
+npm --prefix web ci
+npm --prefix web run build
+
+# 启动默认账号服务
+go run ./cmd/server -config config.json
+```
+
+修改内嵌页面后需要重新编译并重启 Go。仅更新独立 DSH 页面时，在插件目录构建和安装即可，无需重启 Go。
 
 ```bash
 go build ./...
 go vet ./...
-go test ./...                      # 完整测试套件
-go run ./cmd/server -config config.json
+go test ./...
 ```
 
-构建全部二进制：
+### DSH 插件
+
+当前插件版本为 **0.1.8**。在 `dsh-plugin` 目录构建、检查并打包：
+
+```powershell
+npm --prefix ../web ci
+npm run build
+npm test
+npm pack
+dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.8.tgz"
+```
+
+独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端仍需单独在本机运行，安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。
+
+### Docker Compose
 
 ```bash
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o wb2api ./cmd/server
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o signin_bin ./cmd/signin
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o login ./cmd/login
-CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o credit ./cmd/credit
+git clone https://github.com/gaolin89898/workbuddy2api-panel.git
+cd workbuddy2api-panel
+cp config.example.json config.json
+# 编辑配置中的管理密钥，然后启动
+docker compose up -d --build
+curl -s http://localhost:7863/healthz
+# 默认模式：{"service":"workbuddy-accounts","ok":true}
 ```
+
+Compose 默认启动账号管理模式，数据通过 `auths/`、`data/` 和 `config.json` 挂载持久化。服务器上可使用普通浏览器面板；本机客户端切换和 DSH 接口桥接不提供远程桌面控制。
+
+```bash
+docker compose logs -f
+docker compose restart
+docker compose down
+```
+
+镜像构建与发布配置见 [.github/workflows/docker-ghcr.yml](.github/workflows/docker-ghcr.yml)，使用预构建镜像时以当前仓库发布的镜像名和标签为准。
 
 ### 添加账号（登录）
 
-**方式 A：Web 面板（推荐，各平台通用，免命令行）**
+在「账号」页选择 WorkBuddy、Trae 或 Qoder，再点击「添加账号」。各平台的登录方式、客户端切换及限制见[账号平台与客户端切换](#账号平台与客户端切换)。浏览器授权完成后自动保存凭证，具体签到行为以页面结果为准。
 
-打开 `http://127.0.0.1:7863/panel/`，点右上角「**添加账号**」：面板展示授权链接 → 浏览器完成登录 → 自动检测并落盘凭证 → **热加载进池（无需重启）**，顺带完成首次签到。
+WorkBuddy 也可使用 Linux / macOS 的 `./login.sh`（依赖 bash 和 python3）完成设备授权、凭证保存和容器重启；Windows 用户可直接使用面板。
 
-**方式 B：命令行脚本（仅 Linux / macOS，依赖 bash + python3）**
+### 启用 API 网关
+
+需要 WorkBuddy OpenAI 兼容接口时显式传入 `-gateway`：
 
 ```bash
-./login.sh
-# 按提示在浏览器打开授权链接 → 回到终端确认 → 凭证落盘 auths/workbuddy-<uid>.json
+go run ./cmd/server -config config.json -gateway
+# 已构建的程序同样接受该参数
+./wb2api -config config.json -gateway
 ```
 
-`login.sh` 内置授权 URL 获取 + 浏览器登录 + token 轮询 + 首次签到 + 凭证落盘 + 容器重启，全程无 PKCE（state 由服务端签发）。账号池在容器启动时用 `auths/` 目录自动对齐，新增凭证文件即自动发现。
-
-> Windows 用户请用方式 A（或 WSL）；`login.sh` 需要 python3。
-
-### 验证
+Docker 镜像在入口参数末尾加 `-gateway`；Compose 可在 `services.wb2api` 下设置 `command: ["-gateway"]`。启用后 `/panel/` 显示网关管理界面，以下模型、状态、聊天和搜索验证仅适用于该模式。
 
 ```bash
 # 模型列表
@@ -431,19 +283,32 @@ curl -s http://localhost:7863/v1/search/messages \
 
 ## 配置说明
 
-**`config.example.json` 是配置项最完整的参考**：每个字段、默认值与结构都能在其中找到，示例值一律是 `test_key` 之类占位符，**不含任何真实密钥**。下表为字段含义速查。
+**`config.example.json` 是配置项最完整的参考**：每个字段、默认值与结构都能在其中找到，示例值一律是 `test_key` 之类占位符，**不含任何真实密钥**。下表为字段含义速查。账号管理模式使用基础配置及独立签到设置；账号池路由、会话粘性、Redis、用量与请求归档等字段仅在网关模式使用。
+
+### 账号管理设置
+
+默认模式从 `config.json` 读取监听地址、密钥、凭证目录和 `state_file` 等基础项。「签到设置」单独保存到 `state_file` 同目录的 `account-settings.json`，保存后立即应用，优先于启动配置中的签到默认值。
+
+| 设置 | 默认 | 作用 |
+|---|---|---|
+| `checkin_enabled` | `true` | 每日自动签到总开关 |
+| `checkin_hours` | `[9, 21]` | 北京时间签到时刻，0–23 点 |
+| `refresh_after_checkin` | `true` | 签到后刷新余额 |
+| `catchup_on_start` | `true` | 程序启动时补签当天未签到账号 |
+
+开关开启为蓝底“开”、圆点在右，关闭为灰底“关”、圆点在左；编辑后点击「保存设置」才生效，「取消」恢复已保存选项。
 
 ### 字段速查
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `listen` | `:7863` | HTTP 监听地址 |
-| `api_key` | 空 | 网关鉴权密钥；**空 = 不鉴权直接放行**（公网必须设置） |
+| `api_key` | 空（首次自动生成配置时写入随机值） | 面板及网关鉴权密钥；**空 = 不鉴权直接放行**（公网必须设置） |
 | `auth_dir` | `./auths` | 账号凭证目录 |
 | `state_file` | `./data/state.json` | 账号池状态持久化文件 |
 | `dns_servers` | 空 | **出站解析**用的 DNS 服务器（数组，按顺序试，都用不上才报错）；空 = 系统解析器。/etc/resolv.conf 不存在或不可用的环境（Android、精简容器）必须显式配，否则 Go 解析器会退回 `127.0.0.1:53`，查任何域名都变成"连本机 53 端口"（`dial tcp: lookup ... on [::1]:53: connection refused`）。只换 `Transport.DialContext`，不动超时与连接池 |
 | `server.read_timeout` | `300s` | 入站请求读取（含 body 上传）总时长上限；大上下文/文件块经反代转发超时会 400 `read body: i/o timeout`；`0` = 不限制；改动需重启（#100） |
-| `panel.package_detail_limit` | `5` | 积分构成页单账号默认展示的最早到期包数；其余未用完包与已用完包聚合折叠 |
+| `panel.package_detail_limit` | `5` | 网关模式积分构成页单账号默认展示的最早到期包数；其余未用完包与已用完包聚合折叠 |
 | `logging.request_archive_enabled` | `true` | 请求元数据 JSONL 归档开关；不记录提示词、响应正文或 Authorization |
 | `logging.request_retention_days` | `7` | 请求归档保留天数；超期文件在启动和周期清理时删除 |
 | `logging.request_archive_max_mb` | `100` | 请求归档总容量上限（MiB）；超限优先删除最旧文件 |
@@ -463,12 +328,14 @@ curl -s http://localhost:7863/v1/search/messages \
 | `upstream.timeout_seconds` | `120` | 短 RPC（刷新 / 签到 / 余额 / 模型列表）总时长上限 |
 | `upstream.header_timeout_seconds` | 回落 `timeout_seconds` | 聊天首字节前（响应头）上限 |
 | `upstream.idle_timeout_seconds` | `300` | 聊天流中空闲上限（活跃续命，静默断流） |
-| `upstream.user_agent` | 空 | 出站 User-Agent 覆盖（空 = 现状 `CLI/2.63.2 CodeBuddy/2.63.2`）。官网「使用端」列按出站 UA 服务端归因；官方 WorkBuddy 桌面 UA 为 `WorkBuddy/<version>`，需要时可配 |
+| `upstream.user_agent` | 空 | 聊天、模型查询及凭证刷新请求的 User-Agent 覆盖；留空时使用按账号地区生成的 WorkBuddy 三段式 UA |
+| `upstream.client_version` | 空（内置 `5.5.4`） | WorkBuddy 客户端版本，用于默认 UA 及客户端归属头 |
+| `upstream.cli_version` | 空（内置 `2.137.1`） | 默认 UA 中的 CLI 版本段 |
 | `features.sanitize_blacklist_fingerprints` | `true` | 出站请求体黑名单指纹脱敏 |
 | `models.hidden` | `[]` | 模型黑名单：不对外暴露的模型。裸名=两域都藏；`"cn:xxx"`/`"global:xxx"`=只藏该域。`GET /v1/models` 列表过滤 + `POST /v1/chat/completions` 点名拒绝（400 `model_unavailable`）。面板保存后热生效 |
 | `prompt.mode` | `custom` | 系统提示词模式：`custom` = 网关用自有提示词替换客户端 system；`append` = 开头连续 system/developer 块后插网关提示词（既有消息逐字不动）；`passthrough` = 透传客户端原始 system（降级重试仍切中性提示词） |
 | `prompt.file` | 空 | 提示词文件路径；空 = 内置默认（约 2KB）；路径非空但不可读 → 启动报错 |
-| `upstash.url` / `upstash.token` | 空 | 空 = 纯内存模式（Noop 降级，功能照常） |
+| `upstash.url` / `upstash.token` | 空 | 网关模式可选 Redis 镜像；未配置时仍有本地状态文件，默认账号管理模式不初始化 Redis |
 | `pool.max_in_flight` | `3` | 单账号最大在途请求数（`0` = 不限） |
 | `pool.max_in_flight_global` | `2` | global 域单账号在途上限（国际版 WAF 风控更紧，压低并发） |
 | `pool.degrade_threshold` | `5` | 连败降权阈值：未知错误（ErrClient/传输层）连败 N 次临时出池 |
@@ -504,9 +371,11 @@ curl -s http://localhost:7863/v1/search/messages \
 
 加载顺序：JSON 文件 → `WB2A_*` 环境变量（变量非空才覆盖）：
 
-`WB2A_LISTEN` · `WB2A_API_KEY` · `WB2A_AUTH_DIR` · `WB2A_STATE_FILE` · `WB2A_DNS`(逗号分隔多个) · `WB2A_MAX_BODY_MB` · `WB2A_SOFT_RATE`(duration) · `WB2A_SOFT_RATE_MAX`(duration) · `WB2A_TIMEOUT_SECONDS` · `WB2A_HEADER_TIMEOUT_SECONDS` · `WB2A_IDLE_TIMEOUT_SECONDS` · `WB2A_USER_AGENT` · `WB2A_SANITIZE_FINGERPRINTS`(bool) · `WB2A_PROMPT_MODE` · `WB2A_PROMPT_FILE`
+`WB2A_LISTEN` · `WB2A_API_KEY` · `WB2A_AUTH_DIR` · `WB2A_STATE_FILE` · `WB2A_DNS`(逗号分隔多个) · `WB2A_SOFT_RATE`(duration) · `WB2A_SOFT_RATE_MAX`(duration) · `WB2A_TIMEOUT_SECONDS` · `WB2A_HEADER_TIMEOUT_SECONDS` · `WB2A_IDLE_TIMEOUT_SECONDS` · `WB2A_USER_AGENT` · `WB2A_SANITIZE_FINGERPRINTS`(bool) · `WB2A_PROMPT_MODE` · `WB2A_PROMPT_FILE`
 
 ## 核心行为语义
+
+以下请求处理、账号池路由、会话粘性及高级排程说明适用于 `-gateway` 模式。默认账号管理的签到和启动补签使用上面的独立设置。
 
 ### 系统提示词体系
 
@@ -603,6 +472,34 @@ WARN: [server] stream ...: saw M native tool call block(s) but repaired none (to
    - `idleWeight` = `min(闲置小时 × idle_weight_per_hour, idle_weight_max)`，从未使用给满分
 5. 防惊群：跳过 100ms 内刚被选中的账号；全冷却时从非禁用、非余额耗尽的软冷却 / 熔断账号中选最早到期者顶班
 
+### 按地区配置账号池调度
+
+国内版（`cn`）与国际版（`global`）可独立选择策略，例如：
+
+```json
+{
+  "pool": {
+    "strategy": {
+      "domestic": "weighted_random",
+      "international": "sequential_exhaust"
+    },
+    "account_order": {
+      "international": ["uid1", "uid2", "uid3"]
+    }
+  }
+}
+```
+
+- **加权随机**：保留原有成本分层、Top5 加权、闲置补偿和快过期积分权重。旧配置缺少策略时，两域均使用此默认值。
+- **轮询**：在当前最优成本层的全部可用账号之间按顺序轮换，不截断 Top5。跳过禁用、暂停、对应模型冷却、积分保底拦截及在途占满的账号。
+- **顺序耗尽**：持续使用当前账号，直到对应模型冷却、账号不可用、积分保底拦截或成本层优先级变化，再向后切换。恢复的早序账号不会抢占仍可用的当前账号，后续轮转可再次使用。请求级重试和在途占满可暂用其他账号，但不推进主账号；普通失败仍按现有熔断规则处理。
+
+两种有序策略仍遵守会话粘性和成本探索，轮询指针 / 顺序耗尽主账号按 `(realm, model)` 独立维护，通过既有本地状态与 Redis 快照机制恢复。全部候选冷却时返回无可用账号，等待既有恢复机制，不提前试探冷却账号；加权随机继续保留原有全冷却兜底。选号和指针更新持池锁，在途租约仍由既有 Acquire/Release 保证。
+
+Web 面板「账号池与流量治理」可分别配置策略和账号顺序，保存后热生效。闲置补偿与快过期积分加权仅影响加权随机。无地区上下文的旧 Pool 入口保留原行为；策略不会改变路由或自动跨地区借号。
+
+本功能不假定国际版免费模型已采用五小时限额；限流及恢复时间继续依据现有上游识别逻辑处理，不硬编码五小时。
+
 ### 会话粘性
 
 同一会话尽量复用同一账号，多轮对话不跳号：
@@ -613,7 +510,9 @@ WARN: [server] stream ...: saw M native tool call block(s) but repaired none (to
 
 ### 定时任务
 
-五类任务各自独立排程、各有开关，互不影响。容器时区由 `TZ` 控制（compose 默认 `Asia/Shanghai`）。
+默认账号管理模式仅自动执行签到、按设置刷新积分和启动补签，时间固定为北京时间；成长任务、旅行、活跃上报和抽奖不会自动执行。
+
+网关模式按 `config.json` 分别调度下列任务，容器时区由 `TZ` 控制（Compose 默认 `Asia/Shanghai`）：
 
 | 任务 | 开关（默认 true） | 时刻（默认） | 行为 |
 |---|---|---|---|
@@ -646,7 +545,7 @@ WARN: [server] stream ...: saw M native tool call block(s) but repaired none (to
 
 #### 企业版账号（自动识别，无需配置）
 
-`auth` 文件带非空 `enterpriseId` 的账号被识别为**企业版**（面板账号名旁显示「企业版」标签）。企业版**没有个人成长体系**——上游对这些端点一律拒绝（实测 2026-10-07，同一时刻与个人号 A/B 对照）：
+`auth` 文件带非空 `enterpriseId` 的账号被识别为**企业版**（面板账号名旁显示「企业版」标签）。`token_source=enterprise_switch` 仅表示凭证签发来源，不能据此把个人账号判为企业账号。企业版**没有个人成长体系**——上游对这些端点一律拒绝（实测 2026-10-07，同一时刻与个人号 A/B 对照）：
 
 | 端点 | 企业版响应 |
 |---|---|
@@ -670,9 +569,9 @@ WARN: [server] stream ...: saw M native tool call block(s) but repaired none (to
 1. 查连登档位状态 → 已解锁（非 locked / 非 claimed）的档位自动**兑换**
 2. 查抽奖次数 → **有次数自动全部抽完**，奖品记日志（`streak-bonus <uid>: 🎲 …`）
 
-无需配置，跟随签到排程；到天数那天自动完成「兑换 → 抽奖」，无需人工盯。
+仅网关模式跟随签到排程；到天数那天自动完成「兑换 → 抽奖」，无需人工盯。
 
-**关闭定时任务**：用 `schedule.*_enabled: false` 显式关闭（四个都设 `false` 则调度器不空转，直接阻塞等待退出信号）。注意两点语义：
+**关闭定时任务**：用 `schedule.*_enabled: false` 显式关闭（相应任务设为 `false` 后停止该排程）。注意两点语义：
 
 - **空数组与 `null` 表示「未配置 → 回落默认」**，不是「禁用」；真正关闭请用 `*_enabled: false`
 - **禁用不会擦除小时配置**：`*_hours` 原样保留，改回 `true` 即恢复原时点；小时值必须是 0-23，非法值启动即报错
@@ -705,7 +604,9 @@ WARN: [server] stream ...: saw M native tool call block(s) but repaired none (to
 - 每自然日 1 次派出：按 CST（Asia/Shanghai）自然日重置，与容器 `TZ` 无关
 - 失败隔离：单账号失败只跳过该账号当趟；401 不强刷（token 刷新交保活时点）
 
-## API 端点
+## 网关搜索接口
+
+以下接口需要使用 `-gateway` 启动。
 
 ### 联网搜索 `POST /v1/search/messages`
 
@@ -777,36 +678,83 @@ baseURL 指向 `<网关>/v1/search`，即可零代码接入本网关的搜索能
 
 ## 🖥️ Web 管理面板
 
-内嵌式管理面板（`internal/panel`，前端 go:embed 单文件打进二进制，无外部构建依赖），服务启动后访问：
+后端启动后访问 <http://127.0.0.1:7863/panel/>。页面资源内嵌在 Go 二进制中；插件页面独立构建，共用 Vue / Arco Design 源码。管理接口复用 `api_key` 的 Bearer 验证，普通浏览器首次输入后保存在当前来源的 localStorage 中；原生桌面窗口自动连接本机账号服务。
 
-```
-http://127.0.0.1:7863/panel/
-```
+### AI 工具箱
 
-鉴权与 API 同口径：`api_key` 非空时面板要求输入一次密钥（浏览器 localStorage 记住）；为空则直接可用。
-界面支持**明暗主题切换**（首次跟随系统偏好，点击按钮两态翻转并记住选择），左侧导航七个视图：
+默认账号管理模式提供以下页面，支持独立深浅色主题和移动端布局；嵌入 DSH 时使用宿主的原生下拉菜单与配色。
+
+| 页面 | 功能 |
+|---|---|
+| 账号 | 切换 WorkBuddy / Trae / Qoder 平台，添加 / 导入账号，查看余额、修改备注、停用 / 启用、签到和切换本机客户端 |
+| 任务中心 | WorkBuddy 国内版个人成长任务、扫描全部待办、单项 / 全部执行、领奖、队列进度与结果 |
+| 活动奖励 | WorkBuddy 官方补偿、连登兑换、抽奖及券码；Qoder 本轮每日奖励 |
+| 签到设置 | 自动签到、时刻、签到后刷新积分、启动补签和最近 7 天记录；DSH 内含管理密钥入口 |
+| 运行日志 | 查看后端连接与操作结果 |
+
+积分余额与刷新操作集中在账号页。
+
+### 账号平台与客户端切换
+
+**Qoder 国内版**：在「Qoder → 添加账号」中获取浏览器授权链接，用阿里云账号完成授权后自动保存；也支持 PAT / 访问令牌。可查询剩余积分、手动领取每日奖励、停用 / 启用和移除账号。浏览器授权凭证支持到期续期，单独保存在状态文件同目录的 `qoder-accounts.json`（默认 `data/`），含敏感凭证，请勿分享。
+
+Qoder 的[每日 100 Credits 活动](https://docs.qoder.cn/events/100credits)以北京时间 **10:00 至次日 10:00** 为一轮，奖励有效期 30 天，实际资格和活动是否继续由平台决定。与现有平台共用签到设置；早于 10 点的时刻对 Qoder 顺延至 10:00，同一时刻去重。仅从平台当前返回的有效日奖励中领取并回读确认，活动列表为空或结果不明确时会提示，不能视为已领取。
+
+Qoder 独立客户端（Windows `Qoder CN.exe`）已使用同一套「切换账号」按钮、确认窗口、任务进度和失败回滚。客户端至少启动并登录过一次以建立本机加密环境，之后面板内通过浏览器授权的账号可直接切换，不需要逐号保存快照。仅替换原生加密登录凭证并清除旧账号覆盖层，不改写本机设备码、项目、聊天数据库或浏览器数据。备份保存在 `data/desktop/backups/`。重启后检查新客户端会话中的账号请求结果及登录文件身份，无法核验时恢复原登录态。Qoder IDE 的 SQLite 登录格式暂未接入。
+
+Qoder OAuth、用量和活动接口参考 [TraeWorkAssistant](https://github.com/smart-open/TraeWorkAssistant) 的 `5113265866b8c6845cd651ee3ccee59b65debcbe` 版本，由本项目独立实现 Go 客户端；不执行其设备修改或历史活动 ID 兜底逻辑。
+
+面板现支持 **WorkBuddy / Trae / Qoder** 三个平台，在页面顶部切换。Trae 国内版可在「添加账号 → Trae → 直接登录」打开独立的 Edge / Chrome 窗口，在官网完成登录后自动添加账号，无需手动复制 Token。直接登录须在运行面板的电脑上使用 `http://localhost:7863/panel/` 或 `http://127.0.0.1:7863/panel/` 访问，并已安装桌面版 Edge / Chrome；Linux 还需桌面显示环境。每次登录使用独立临时浏览器资料，登录完成、取消或 15 分钟超时后关闭并清理。远程部署可使用「登录凭证」粘贴 Session Cookie / Token，或者导入 TraeTools 账号备份（支持带口令的 AES-GCM 加密备份及原始 Accounts 配置 JSON）。Session 可用于自动续期 Token；会话本身过期后需重新登录。设备号支持 12 至 20 位数字 `x-device-id`，新账号留空时会分配并持久保存。
+
+「直接登录」现使用 Trae 国内版 OAuth 原生授权流程：每次授权创建独立的 15 位设备号、机器 ID 和 P-256 密钥对，通过 PKCE 交换凭证时提交设备公钥，授权成功后按账号保存身份。后续签到与积分查询使用该设备号，Token 续期用同一私钥签署 `DeviceProof`，保存轮换后的刷新凭证；不会被本地客户端设备号覆盖。点击账号行的「凭证 → 直接登录」可重新授权，后端会核对登录账号，账号不一致时取消更新，原账号 ID、备注和签到记录保留。旧账号需要重新授权才能获得新的设备绑定，登录本身不领取签到奖励。
+
+OAuth 流程参考 [朱天伟 / smart-open 的 TraeWorkAssistant](https://github.com/smart-open/TraeWorkAssistant)（MIT，协议参考版本 `5113265866b8c6845cd651ee3ccee59b65debcbe`，[issue #110](https://github.com/smart-open/TraeWorkAssistant/issues/110)），使用独立 Go 实现；此处仅接入账号登录、设备身份和签名续期。OAuth 回调仅监听本机 `127.0.0.1:17388`，端口被占用时会提示，完成 / 取消 / 超时后释放。设备私钥和刷新凭证仅保存在本地账号文件中，不通过面板接口或日志返回；备份该文件时应按登录凭证保护。
+
+使用 Session / Token 导入的旧账号仍支持客户端设备匹配：签到前读取运行面板电脑上的 Trae CN / TRAE SOLO CN 本地资料，仅在客户端登录账号与面板账号 ID 一致时使用其真实设备号，不导入本地 Token 或设备私钥；无匹配资料时保留原设备号。读取格式参考 [Magpie PR #333](https://github.com/magpie-community/plugins/pull/333)，使用独立 Go 实现。设备身份仍受平台签到规则约束：`9095` 表示设备今日已签到，不代表当前账号已签到；只有账号状态确认成功才显示已签到。`9074` 的具体原因尚未确认，单次签到操作遇到这两类错误后不会立即重试或自动更换设备。
+
+Trae 账号单独保存在 `data/trae-accounts.json`（跟随 `state_file` 目录），与 WorkBuddy 共用签到时刻、启动补签和签到后刷新积分设置。导入备份不会立即向平台发起签到，导入后可点击「刷新积分」验证登录态。Trae 接口和备份格式参考 [TraeTools](https://github.com/star620/TraeTools) 的 `35b20af` 版本，使用独立 Go 实现；这里不包含其 GitHub 云端部署功能。
+
+本机 Windows 账号页支持**切换实际客户端账号**。WorkBuddy 个人账号可直接点击「切换账号」，国内版和国际版分别定位 WorkBuddy / WorkBuddy AI，企业账号暂不支持。Trae 国内版采用原生登录态快照：每个账号首次在 Trae CN 客户端登录后，点击「保存当前登录态」，以后即可从对应账号行切换。保存时自动关联或添加面板账号，不覆盖已有的独立 OAuth 设备身份；新捕获账号仅导入当前访问凭证，长期自动续期仍需在「凭证」中独立授权。快照和原登录态备份保存在状态文件同目录的 `desktop/`（默认 `data/desktop/`），含敏感凭证，不应分享或提交。
+
+切换前需要保存工作并在页面确认退出和重启；客户端未正常退出时会结束该客户端的后台进程。后台串行执行备份、恢复、启动和身份核对，只有新客户端会话确认目标 UID 才显示成功；未确认时尝试自动恢复原登录态。Trae 仅恢复登录命名空间、原生设备资料和机器标识，不改写项目或聊天记录。切换不进行签到，也不生成虚拟设备码。安装路径通过默认目录和 Windows 安装记录（含自定义安装目录）识别；操作接口仅接受本机直连，远程面板不可控制服务端桌面。登录态格式与客户端版本相关，不兼容时会报错并保留备份。
+
+Trae CN 与 Qoder CN 的运行状态按客户端实际进程路径核对，兼容 Qoder 的 `.qoder-versions/<版本>/` 更新目录。进程在扫描期间退出会被跳过；无法核对路径或权限不足时，切换操作会停止并提示原因。
+
+### 签到与运行状态
+
+- 自动签到默认每天北京时间 **09:00、21:00**，启动时补签当天尚未签到的账号；程序需持续运行，关闭浏览器不影响签到。
+- 「签到设置」的开关开启为蓝底“开”、圆点在右，关闭为灰底“关”、圆点在左。点击「保存设置」后立即生效，保存在 `data/account-settings.json`（跟随 `state_file` 目录），重启后保留。
+- 自动调度仅执行签到和积分查询，签到前按需刷新登录凭证；旅行、活跃上报、成长任务和抽奖不会自动运行。
+- 「任务中心」支持扫描全部待办、接受任务、单项执行、执行全部待办和领取奖励，可查看执行队列及进度。执行可能发起模型请求并消耗积分，需要页面确认。任务与个人活动奖励仅支持 WorkBuddy 国内版个人身份，企业账号和国际版会显示原因。
+- 「活动奖励」展示连登兑换、官方补偿、抽奖机会和券码；进入页面只查询状态，领取、兑换和抽奖需手动操作。Qoder 每日奖励沿用现有领取接口。
+- 国际版和企业版账号可管理、查询额度，但不支持个人每日签到。停用账号不参与自动签到。
+- 默认模式不提供 `/v1/*` API，也不初始化网关用量统计、会话路由或 Redis。Docker 使用同一默认模式，健康检查无需先添加账号。
+
+### 网关管理视图
+
+使用 `-gateway` 启动后，面板提供账号池、用量、积分构成、任务中心、模型与档位、配置和运行日志。
 
 | 视图 | 功能 |
 |---|---|
 | **账号池** | 统计条（账号总数 / 可用 / 冷却中 / 已禁用 / 积分剩余·总额 / 粘性会话）+ 账号表：健康色条与状态标签（可用 / 限流冷却 / 积分冷却 / 熔断 / 连败降权 / 已禁用）、积分量条、成功·失败计数、在途、最近一次用量（次数 / token / 延迟 / 速率）、最近成功时间；单号操作 签到 / 余额 / 任务 / 解冻 / 禁用 / 移除；批量「全部签到」「旅行巡检」「活跃上报」「全部保活」；下方**模型锁池**表列出被上游按模型限流的模型（整池不可用 / 没号可用 / 部分限流）、可选与总数、锁定账号数、最早解锁与全池解锁倒计时、限流原因，无锁定时显示「所有模型均可选」 |
 | **用量** | 指标卡（请求数 / 总 token / prompt / completion / 失败尝试 / 平均延迟，含占比与吐字速率）+ **Token 时序图**（渐变堆叠柱、均值参考线、峰值标注、悬停看单桶明细）+ **用量明细**（按账号 / 按模型 / 按域切换，可按合计 Token / 请求数 / 失败数 / 平均延迟排序，含 prompt·completion 占比条）+ **积分扣除历史**（按账号 / 按模型，折算「积分 / 1M Token」） |
 | **积分构成** | **积分到期分布**（按批次到期日聚合，颜色区分账号）+ **账号对比**（按来源归并的面额 / 余额 / 包数卡片与混合构成条）+ 逐包明细（按到期日排序，默认展开最近到期的 `panel.package_detail_limit` 个，其余与已用完的包折叠） |
-| **任务中心** | 成长任务队列：一键扫描全部账号待办 → 按账号排队执行（账号内串行，账号间可选并发 1-3），进度实时更新；另含开学季券码查询。详见 [任务中心](#-任务中心面板新视图) |
+| **任务中心** | 成长任务队列：一键扫描全部账号待办 → 按账号排队执行（账号内串行，账号间可选并发 1-3），进度实时更新；另含开学季券码查询。详见 [任务中心](#任务中心) |
 | **模型与档位** | 实时查询上游：每模型的积分倍率（含限时免费 / 夜间折扣等**生效价**与划线牌价）、默认思考档、支持的档位（含「off（可关）」）、上下文长度与最大输出；存在探测数据时最大输出列显示**实测上限与钳制告警**（见「探测模型真实输出上限」）。支持**按条件查询**：关键词（ID / 名称 / 描述 / 厂商 / 标签，空格分词 AND）、域（CN / Global）、能力（工具 / 视觉 / 思考 / 默认）、思考档位、价格（折扣 / 限时免费 / 打折），以及按倍率 / 上下文 / 最大输出 / ID 排序 |
 | **配置** | 在线编辑 config.json：服务（监听地址 / API 密钥 / 单账号明细条数）、定时任务（签到 / 保活 / 旅行 / 活跃 / 成长任务五类时点与开关 + 余额刷新间隔）、账号池与流量治理、上游与高级（超时 / 出站 UA / 提示词模式 / 指纹脱敏 / 粘性路由）、日志（调用来源记录开关） |
 | **运行日志** | **请求记录表**（时间 / 结果 / 模型 / 账号 / **来源 IP** / **User-Agent** / 耗时 / Token / 积分 / 请求 ID），支持按 IP·UA·模型·账号·请求 ID 与结果筛选、读取条数、时间范围；下方 **运行日志** 按「任务 / 对话 / 系统」分频道，可开关自动滚动；新增 **积分历史**（每次真实查到余额与上次比对，变动即留痕） |
 
 顶部另有「刷新」（向上游全量查询真实余额并回写；5 秒自动轮询只读内存，不打上游）与「添加账号」（浏览器内完成 OAuth 设备授权：显示授权链接 + 自动轮询，登录后凭证落盘并**热加载进池，免重启**，也支持导入 cockpit tools 导出的 JSON）。
 
-### 手机端（≤760px）
+### 网关管理视图的手机布局（≤760px）
 
 无需配置：窗口宽度 ≤760px 时自动生效，>760px 完全不参与，桌面端逐像素不变。
 
 - **侧栏 → 抽屉**：顶栏出现汉堡按钮，点遮罩 / 选中导航项 / `Esc` / 窗口拉宽都会自动关闭（拉宽不复位会留一层 fixed 遮罩把页面盖住点不动）
 - **宽表 → 卡片**：表头隐藏，每列字段名由 `mobile.js` 从 `<th>` 的纯文本抄进同列 `td[data-l]`，CSS 用 `content: attr(data-l)` 渲染——写死在 CSS 里会随表头改名漂移
-- **Token 时序图窄屏重画**：上游那张图固定 viewBox `1200×200` 靠 `width:100%` 缩放，360px 宽下缩放比只剩 ~0.28（内部 10px 刻度实际 ~2.8px，看着是一排小点）；窄屏改画 `440×230` 并抽稀刻度，tooltip 同样跟随柱子
+- **Token 时序图窄屏重画**：桌面图表固定 viewBox `1200×200` 靠 `width:100%` 缩放，360px 宽下缩放比只剩 ~0.28（内部 10px 刻度实际 ~2.8px，看着是一排小点）；窄屏改画 `440×230` 并抽稀刻度，tooltip 同样跟随柱子
 - 顶栏 / 筛选栏 / 弹层 / 统计条 / KPI 卡按同一密度口径收紧；`color-scheme: only light|dark` 退出手机浏览器的「自动暗化」（否则主题按钮显示浅色、页面实际还是黑的）
-- 实现全在 `mobile.css` / `mobile.js` 两个独立文件里（`index.html` 只多一行 `<link>`、一行 `<script>`），改手机端不会与上游对 `index.html` / `app.js` 的改动冲突
+- 实现全在 `mobile.css` / `mobile.js` 两个独立文件里（`index.html` 只多一行 `<link>`、一行 `<script>`），窄屏样式与网关桌面布局分开维护
 
 ### 时间范围查询
 
@@ -831,7 +779,19 @@ http://127.0.0.1:7863/panel/
 
 ### 面板接口（`/panel/api/*`）
 
-与页面同一 Bearer 鉴权，可直接脚本化调用：
+管理接口与页面使用同一 Bearer 鉴权。默认账号管理模式的常用接口如下；Trae、Qoder 和本机客户端接口仅在该模式注册。
+
+| 分组 | 端点 |
+|---|---|
+| 账号与设置 | `GET overview` · `GET logs` · `GET/POST config`；`config` 在此模式只读写签到设置 |
+| WorkBuddy | `POST login/start` · `GET login/poll` · `POST import/cockpit`；`POST accounts/{uid}/checkin` · `balance` · `disable` · `revive` · `remove`；`POST checkin_all` · `balance_all` |
+| 成长任务 | `GET accounts/{uid}/tasks`；`POST accounts/{uid}/tasks/accept` · `claim` · `auto`；`POST tasks/scan_all` · `tasks/run_queue`；`GET tasks/queue` |
+| 活动奖励 | `GET/POST benefits/accounts/{uid}/rewards`，仅支持 WorkBuddy 国内版个人账号 |
+| Trae | `GET trae/login/available`；`POST trae/login/start` · `trae/login/cancel`；`GET trae/login/poll`；`POST trae/accounts` · `trae/import` · `trae/accounts/{uid}/{action}` · `trae/checkin_all` · `trae/balance_all`；账号状态包含在 `overview` |
+| Qoder | `POST qoder/login/start` · `qoder/login/cancel`；`GET qoder/login/poll`；`POST qoder/accounts` · `qoder/accounts/{uid}/{action}` · `qoder/checkin_all` · `qoder/balance_all`；账号状态包含在 `overview` |
+| 本机客户端 | `GET desktop/status`；`POST desktop/capture` · `desktop/switch`，必须为本机访问 |
+
+网关模式另外提供下列管理接口：
 
 | 分组 | 端点 |
 |---|---|
@@ -844,7 +804,7 @@ http://127.0.0.1:7863/panel/
 
 账号运维操作均落到池既有入口（`Revive`/`Disable`/`Remove` 等），与 `/status` 观测口径一致。
 
-**安全响应头**：面板页面与全部 `/panel/api/*` 响应统一带 `Content-Security-Policy`（`default-src 'none'`，脚本仅同源，`frame-ancestors 'none'` 禁嵌套）、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer` 等；前端脚本独立为同源 `app.js`，不含内联脚本与内联事件处理器。
+**安全响应头**：面板页面与全部 `/panel/api/*` 响应统一带 `Content-Security-Policy`（`default-src 'none'`，脚本仅同源，`frame-ancestors 'none'` 禁嵌套）、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy: no-referrer` 等；前端脚本为同源静态资源（账号管理 `accounts.js`，网关管理 `app.js`），不含内联脚本与内联事件处理器。
 
 **鉴权实现**：`internal/httpauth` 统一 server 与 panel 的 Bearer 校验，使用 SHA-256 摘要 + `subtle.ConstantTimeCompare` 常量时间比较（避免逐字节比较泄露密钥信息）；上游返回的 `uid` 经白名单校验（`[A-Za-z0-9_-]`，长度 ≤64）后才用于拼凭证文件名，防止路径穿越。
 
@@ -852,9 +812,11 @@ http://127.0.0.1:7863/panel/
 
 ## 🔌 API 端点
 
+`/v1/*` 与 `/status` 仅在 `-gateway` 模式提供；默认账号管理的探活接口为 `GET /healthz`，正常返回 `200 {"service":"workbuddy-accounts","ok":true}`，不要求先添加账号。下表描述网关模式。
+
 | 端点 | 鉴权 | 说明 |
 |---|---|---|
-| `POST /v1/chat/completions` | Bearer（`api_key` 非空时） | OpenAI 兼容补全；流式/非流式；请求体上限 8 MiB |
+| `POST /v1/chat/completions` | Bearer（`api_key` 非空时） | OpenAI 兼容补全；流式 / 非流式；网关不设请求体大小上限，上游限制如实返回 |
 | `GET /v1/models` | Bearer（`api_key` 非空时） | 模型列表（纯动态拉取，缓存 1h；失败返回空列表 + 5min 负缓存）；每模型带 `context_length`/`max_output_tokens`（四级查找链：上游目录 → 内置知识表 → model.json 缓存 → models.dev）、`reasoning_supported_efforts`/`reasoning_default_effort` 思考档位及描述/标签/倍率等全字段（上游有返回时） |
 | `GET /status` | Bearer（`api_key` 非空时） | 账号状态汇总 + 每账号详情（积分/冷却/熔断/在途/粘性）+ `model_locks`（按「域 + 模型」聚合的限流视图：可选 / 总数、锁定账号数、`state`、最早解锁与全池解锁时间、限流原因；无锁定为空） |
 | `GET /healthz` | 无 | 健康检查：有 healthy 且未占满账号返回 200，否则 503；响应带身份标识（见下） |
@@ -911,9 +873,11 @@ http://127.0.0.1:7863/panel/
 | `activity/growth/tasks/accept` | POST | 接受任务（`{"task_codes":[...]}`） |
 | `activity/growth/tasks/<task_code>/claim` | POST | **领取任务奖励**（任务码在路径、无 body；**Web 域 `www.workbuddy.cn`**，非 CLI 域——这是领奖能成功的关键） |
 
-出站请求统一携带 `CLI/2.63.2 CodeBuddy/2.63.2` UA（可被 `upstream.user_agent` 覆盖）；聊天请求带账号头（`X-User-Id` 等），**永不携带 `X-Refresh-Token`**（该头只出现在 token 刷新请求）。领奖请求额外带 `x-client-platform: web` 与 workbuddy.cn 的 Origin/Referer。
+聊天、模型查询及凭证刷新请求默认携带 WorkBuddy 三段式 UA，可用 `upstream.user_agent` 覆盖；国内版形如 `WorkBuddy/5.5.4 WorkBuddy/5.5.4 CLI/2.137.1`，国际版第二段为 `WorkBuddy AI/<version>`。积分、签到和活动请求默认使用单段 `WorkBuddy/<client_version>` UA，`upstream.client_name=SaaS` 时不设置该 UA。聊天请求带账号头（`X-User-Id` 等），**永不携带 `X-Refresh-Token`**（该头只出现在 token 刷新请求）。领奖请求额外带 `x-client-platform: web` 与 workbuddy.cn 的 Origin/Referer。
 
 ## 请求级日志
+
+请求级指标和归档用于网关模式；默认账号管理页面显示操作运行日志。
 
 每个 `/v1/chat/completions` 请求结束时输出一行表格日志（stdout）：
 
@@ -932,7 +896,7 @@ http://127.0.0.1:7863/panel/
 | `TTFB` | 流式首帧耗时（非流式为 `-`） |
 | `tok` / `tok/s` / `total` | 输出 token 数 / 速率 / 总时长 |
 
-**敏感度**：日志不含任何 token 明文（详见[安全与合规](#安全与合规)），无落盘日志文件。
+**敏感度**：请求日志不写凭证、提示词或响应正文；元数据可按配置归档到本地 JSONL。原生桌面窗口另有启动诊断日志，见下方数据备份说明。
 
 ## 部署运维
 
@@ -986,11 +950,23 @@ python3 scripts/probe_max_tokens.py   --base http://127.0.0.1:7863/v1 --key sk-x
 模型不受影响。探测判据（两种停止的区分 / 提示词量级匹配 / 并行与时间预算）的设计细节
 见脚本头部注释。
 
-### 账号管理
+### 数据保存与备份
+
+| 数据 | 默认位置 | 说明 |
+|---|---|---|
+| WorkBuddy 凭证 | `auths/` | 授权及刷新凭证 |
+| 账号池状态 | `data/state.json` | 账号状态、积分与计数等 |
+| 签到设置 | `data/account-settings.json` | 自动签到、时刻、余额刷新与启动补签 |
+| Trae / Qoder 凭证 | `data/trae-accounts.json` / `data/qoder-accounts.json` | 各平台凭证与账号状态 |
+| 客户端登录态 | `data/desktop/` | 快照与切换回滚备份 |
+| 桌面启动诊断 | `data/desktop.log` | 原生桌面窗口运行诊断 |
+| 网关用量与归档 | `state_file` 同目录 | 网关模式用量、请求元数据及可选 Redis 镜像 |
+
+签到设置、Trae / Qoder 凭证、客户端快照及网关归档跟随 `state_file` 所在目录保存；桌面启动诊断固定写入所用配置目录下的 `data/desktop.log`。备份时一并保留 `config.json`、`auth_dir` 和状态目录；备份含登录凭证，不能随插件包或源码分发。
 
 - 多账号复制 `auths/workbuddy-<uid>.json` 即可，池启动时自动对齐目录
 - Session 失效账号被禁用（`disabled_reason` 透出在 `/status`）后，可用 `./login.sh` 重新登录覆盖凭证；已持久化 `disabled=true` 的账号可在源码侧调用 `Pool.ReviveDisabled(uid)` 复活（`state.json` 中清除 `disabled` 标志）
-- 备份 = `auths/`（凭证）+ `data/state.json`（池状态：积分 / 冷却 / 计数）；配置 Upstash 后状态另镜像至 Redis（7 天 TTL）
+- 网关模式可将池状态额外镜像到 Upstash Redis（7 天 TTL）；Redis 不替代本地账号凭证和配置备份
 
 ## 安全与合规
 
@@ -1005,14 +981,14 @@ python3 scripts/probe_max_tokens.py   --base http://127.0.0.1:7863/v1 --key sk-x
 
 - 默认监听 `:7863`，compose 暴露 `0.0.0.0:7863`，**无内置 TLS**；公网部署必须设置 `api_key`，建议前置反代 / 内网
 - 请求日志字段：序号 / 模型 / 模式 / 状态码 / **uid 前 8 位** / TTFB / token 数——**不含** `accessToken` / `refreshToken` / `api_key` 明文（不读取 `Authorization` 头）
-- 日志写 **stdout / stderr**（容器内进入 `docker logs`），代码无任何落盘日志文件
+- 运行日志写 **stdout / stderr**（容器内进入 `docker logs`）；网关请求元数据可归档到 JSONL，原生桌面启动诊断写入 `data/desktop.log`
 
 ### 3. 发布来源与合规边界
 
-- **无预编译 release**：仓库无 Release / tag，产物 = 源码自构建（Dockerfile 多阶段在本地构建时完成）
+- 可从源码构建 Go 程序、Docker 镜像和 DSH 插件；二进制与镜像发布流程见仓库的 `.github/workflows/`，下载时核对来源与对应提交
 - 登录 / 签到 / 积分工具：`./login.sh` / `./signin.sh` / `./credit.sh`
-- **无产物校验和**：`go.sum` 仅约束 Go 模块依赖；Docker 镜像由本地 `docker compose build` 生成，未引用第三方镜像
-- 上游 CodeBuddy 属腾讯系商业产品，本项目是其**非官方 OpenAI 兼容网关**；使用其账号做 API 网关涉及目标平台服务条款与账号风险，作者不对账号封禁、条款违约或使用结果负责
+- `go.sum` 约束 Go 模块依赖；自行构建时使用可信源码和依赖，插件打包不包含账号数据或真实管理密钥
+- 上游 CodeBuddy 属腾讯系商业产品，本项目的可选网关模式提供非官方 OpenAI 兼容接口；使用其账号做 API 网关涉及目标平台服务条款与账号风险，作者不对账号封禁、条款违约或使用结果负责
 
 ### 4. 授权使用边界
 
@@ -1068,7 +1044,7 @@ sudo chown -R 10001:10001 ./auths ./data ./config.json
 
 ### 如何让官网「使用端」列显示为 WorkBuddy？
 
-官网「使用端」列按出站请求 UA 服务端归因。配置 `upstream.user_agent: "WorkBuddy/2.x.x"`（或环境变量 `WB2A_USER_AGENT`）即可改写全部出站请求的 UA；默认保持 `CLI/2.63.2 CodeBuddy/2.63.2` 现状（指纹净化考虑，可配而非改死）。
+默认已使用 WorkBuddy 客户端 UA，无需额外设置。版本段可通过 `upstream.client_version` 和 `upstream.cli_version` 调整；`upstream.user_agent`（或环境变量 `WB2A_USER_AGENT`）可覆盖聊天、模型查询和凭证刷新请求的 UA，积分及签到等请求使用独立的单段 UA。官网最终显示的「使用端」由平台归因规则决定。
 
 ## 关键断言 ↔ 代码出处
 
@@ -1084,7 +1060,7 @@ sudo chown -R 10001:10001 ./auths ./data ./config.json
 | 降级触发与次日 00:00 CST 重置 | `internal/server/degrade.go:30`（Trigger）、`:46`（nextMidnightCST） |
 | 6004 模型级限流 code 与重置时间解析 | `internal/upstream/client.go:127`、`internal/upstream/client.go:147` |
 | `11101` / Unmarshal 失败不罚号 | `internal/upstream/client.go:114-115`；处理分支 `internal/server/handler.go:489` |
-| 出站 UA 覆盖（空 = 现状 `CLI/2.63.2 CodeBuddy/2.63.2`） | `cmd/server/config.go:73`；接线 `cmd/server/main.go:96` |
+| 默认 WorkBuddy UA、地区品牌及自定义覆盖 | `internal/upstream/headers.go` 的 `defaultWorkBuddyUAFor`、`userAgent` 与 `billingUA` |
 | session-dead 连续阈值 3 才禁用 | `internal/pool/pool.go:249-253`（`sessionDeadThreshold`） |
 | `ReviveDisabled` 人工复活 | `internal/pool/pool.go:951` |
 | disabled 账号透出 `disabled_reason` | `internal/pool/pool.go:1162-1165` |
@@ -1103,36 +1079,8 @@ sudo chown -R 10001:10001 ./auths ./data ./config.json
 
 ## License
 
-本项目采用 [MIT License](LICENSE) 开源协议。
+本项目采用 [MIT License](LICENSE) 开源协议。代码基于 [Sliverkiss/workbuddy2api](https://github.com/Sliverkiss/workbuddy2api) 与 [linguo2625469/workbuddy2api-panel](https://github.com/linguo2625469/workbuddy2api-panel) 发展，保留其版权与许可声明；第三方协议实现的参考来源在对应功能说明中注明。
 
 - 允许任意使用、复制、修改、合并、发布、分发、再授权及销售
-- 再分发（源码或二进制形式）时，请保留原仓库的 MIT 版权声明与许可声明（如在 NOTICE 或 README 中注明原始出处 `https://github.com/Sliverkiss/workbuddy2api`）
+- 再分发（源码或二进制形式）时，请保留 [LICENSE](LICENSE) 中的版权与许可声明。
 - 本项目不授予任何上游（CodeBuddy / 腾讯）接口或服务的权利；使用者仍需自行遵守上游服务条款
-
-### 按地区配置账号池调度
-
-国内版（`cn`）与国际版（`global`）可独立选择策略，例如：
-
-```json
-{
-  "pool": {
-    "strategy": {
-      "domestic": "weighted_random",
-      "international": "sequential_exhaust"
-    },
-    "account_order": {
-      "international": ["uid1", "uid2", "uid3"]
-    }
-  }
-}
-```
-
-- **加权随机**：保留原有成本分层、Top5 加权、闲置补偿和快过期积分权重。旧配置缺少策略时，两域均使用此默认值。
-- **轮询**：在当前最优成本层的全部可用账号之间按顺序轮换，不截断 Top5。跳过禁用、暂停、对应模型冷却、积分保底拦截及在途占满的账号。
-- **顺序耗尽**：持续使用当前账号，直到对应模型冷却、账号不可用、积分保底拦截或成本层优先级变化，再向后切换。恢复的早序账号不会抢占仍可用的当前账号，后续轮转可再次使用。请求级重试和在途占满可暂用其他账号，但不推进主账号；普通失败仍按现有熔断规则处理。
-
-两种有序策略仍遵守会话粘性和成本探索，轮询指针 / 顺序耗尽主账号按 `(realm, model)` 独立维护，通过既有本地状态与 Redis 快照机制恢复。全部候选冷却时返回无可用账号，等待既有恢复机制，不提前试探冷却账号；加权随机继续保留原有全冷却兜底。选号和指针更新持池锁，在途租约仍由既有 Acquire/Release 保证。
-
-Web 面板「账号池与流量治理」可分别配置策略和账号顺序，保存后热生效。闲置补偿与快过期积分加权仅影响加权随机。无地区上下文的旧 Pool 入口保留原行为；策略不会改变路由或自动跨地区借号。
-
-本功能不假定国际版免费模型已采用五小时限额；限流及恢复时间继续依据现有上游识别逻辑处理，不硬编码五小时。
