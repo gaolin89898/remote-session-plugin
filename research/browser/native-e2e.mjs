@@ -22,6 +22,7 @@ const peers = new Map();
 const token = randomUUID();
 const restartOnly = process.env.DSH_NATIVE_RESTART_ONLY === '1';
 const resourcePerfOnly = process.env.DSH_NATIVE_RESOURCE_PERF_ONLY === '1';
+const lightweightOnly = process.env.DSH_NATIVE_LIGHTWEIGHT_ONLY === '1';
 const relayDelay = Number(process.env.DSH_NATIVE_RELAY_DELAY_MS || 0);
 let resourceReads = 0;
 const fixtureName = 'dsh-sync-fixture';
@@ -233,6 +234,7 @@ async function boot(id) {
   const overlay = path.join(home, 'native-test.yml');
   fs.writeFileSync(overlay, '- id: remote-session\n  config:\n' + Object.entries({
     relayUrl, token, instanceId: id, instanceName: id === 'home' ? '本机测试' : '远端测试', indexMs: 1000,
+    ...(id === 'home' && lightweightOnly ? { lightweight: true } : {}),
   }).map(([key, value]) => '    ' + key + ': ' + JSON.stringify(value)).join('\n')
     + '\n- id: workspace-controller\n  config:\n    documentsDirectory: ' + JSON.stringify(home)
     + '\n- id: plugin-manager\n  config:\n    registry: ' + JSON.stringify(relayUrl + '/registry') + '\n    fallbackRegistries: []\n'
@@ -278,6 +280,38 @@ async function run() {
   const errors = [];
   page.on('pageerror', error => { errors.push(String(error)); console.error(error.stack); });
   await page.goto(local.url);
+  if (lightweightOnly) {
+    await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+    const resourceRequests = [];
+    page.on('request', request => {
+      if (request.url().includes('/remote-session/api/resource/')) resourceRequests.push(request.url());
+    });
+    const started = performance.now();
+    await Promise.all([
+      page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 60000 }),
+      page.evaluate(() => window.__DSH_REMOTE_SESSION__.switchMachine('company')),
+    ]);
+    await page.waitForFunction(() => window.__DSH_REMOTE_SESSION__?.peerId === 'company', null, { timeout: 60000 });
+    try {
+      await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 20000 });
+    } catch (error) {
+      console.log('BODY', (await page.evaluate(() => document.body.innerText)).slice(0, 2000));
+      await page.screenshot({ path: path.join(root, 'research/browser/out/lightweight-failure.png') });
+      throw error;
+    }
+    const measurement = {
+      ms: Math.round(performance.now() - started),
+      resourceRequests: resourceRequests.length,
+      lightweight: await page.evaluate(() => window.__DSH_REMOTE_SESSION__.lightweight),
+    };
+    console.log('LIGHTWEIGHT PERF', JSON.stringify(measurement));
+    assert.equal(measurement.lightweight, true, 'the setting must select lightweight switching');
+    assert.equal(measurement.resourceRequests, 0, 'lightweight switching must not download target client bundles');
+    const probe = await page.evaluate(() => window.__DSH_REMOTE_SESSION__.request('probe', {}));
+    assert.ok(probe.clientEntries.includes('dsh-remote-session'), 'native calls must still reach the target');
+    console.log('PASS lightweight switching keeps the local composition and forwards native calls');
+    return;
+  }
   if (resourcePerfOnly) {
     await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
     const measurements = [];

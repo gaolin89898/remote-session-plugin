@@ -82,7 +82,7 @@ function fixture(options = {}) {
       return Response.json({ ok: true, result });
     },
   };
-  installNativeTransport(win);
+  installNativeTransport(win, options.installOptions);
   return { win, gateway, localStorage, calls, nativeCalls, localCalls, scripts, disposed: () => disposed, reloaded: () => reloaded };
 }
 
@@ -344,6 +344,52 @@ test('remote boot loads the target composition, including remote-only plugins, b
     assert.equal(f.win.__DSH_TRANSPORT__.streamBaseUrl, 'http://127.0.0.1:9000');
     assert.equal(f.reloaded(), false);
   } finally { await f.gateway.dispose(); }
+});
+
+test('lightweight boot keeps the local composition and forwards native calls', async () => {
+  const f = fixture({ installOptions: { lightweight: true } });
+  try {
+    const localGraph = f.win.__DSH_BOOT__;
+    let activated = false;
+    void f.win.__DSH_BOOT_READY__.promise.then(() => { activated = true; });
+    await f.win.__DSH_BOOT_READY__.resolve();
+    await f.win.__DSH_BOOT_READY__.promise;
+    assert.equal(activated, true);
+    assert.equal(f.win.__DSH_BOOT__, localGraph, 'the local composition must stay in place');
+    assert.deepEqual(f.scripts, [], 'no remote client bundle may load');
+    assert.equal(f.reloaded(), false);
+    assert.ok(f.nativeCalls.some(call => call.operation === 'probe' && call.peerId === 'company'));
+    assert.equal(f.win.__DSH_TRANSPORT__.ownsHost, false);
+    assert.equal(typeof f.win.__DSH_TRANSPORT__.fetch, 'function');
+    assert.equal(f.win.__DSH_REMOTE_SESSION__.lightweight, true);
+    // Drafts and preferences stay isolated per target machine.
+    assert.equal(f.win.localStorage.getItem('dsh.conversation.same-id'), null);
+    f.win.localStorage.setItem('dsh.conversation.same-id', 'company draft');
+    assert.equal(f.localStorage.getItem('dsh.remote-session.host.company.dsh.conversation.same-id'), 'company draft');
+    assert.equal(f.localStorage.getItem('dsh.conversation.same-id'), 'local draft');
+  } finally { await f.gateway.dispose(); }
+});
+
+test('lightweight switching validates the target without downloading its interface', async () => {
+  const f = fixture({ installOptions: { lightweight: true } });
+  try {
+    f.gateway.dispatch = async (_key, input) => {
+      if (input.operation !== 'probe') throw new Error('unexpected operation ' + input.operation);
+      return { protocol: 1, httpProtocol: 1, clientGraph: { release } };
+    };
+    await f.win.__DSH_REMOTE_SESSION__.switchMachine('another');
+    assert.equal(f.reloaded(), true);
+    assert.equal(f.win.sessionStorage.getItem('dsh.remote-session.machine.v1'), 'another');
+    const stamp = JSON.parse(f.win.sessionStorage.getItem('dsh.remote-session.lightweight-ok.v1'));
+    assert.equal(stamp.peer, 'another');
+  } finally { await f.gateway.dispose(); }
+
+  const legacy = fixture({ installOptions: { lightweight: true } });
+  try {
+    legacy.gateway.dispatch = async () => ({ protocol: 1, clientGraph: { release } });
+    await assert.rejects(legacy.win.__DSH_REMOTE_SESSION__.switchMachine('legacy'), /1\.2\.2/);
+    assert.equal(legacy.reloaded(), false);
+  } finally { await legacy.gateway.dispose(); }
 });
 
 test('unavailable or incompatible remote boot restores local selection without opening desktop recovery', async () => {

@@ -479,7 +479,7 @@ function PluginSyncSettings() {
 }
 
 function ConnectionSettings() {
-  const [form, setForm] = React.useState({ relayUrl: '', token: '', instanceId: '', instanceName: '' });
+  const [form, setForm] = React.useState({ relayUrl: '', token: '', instanceId: '', instanceName: '', lightweight: false });
   const [meta, setMeta] = React.useState<any>(null);
   const [busy, setBusy] = React.useState(true);
   const [error, setError] = React.useState('');
@@ -493,7 +493,7 @@ function ConnectionSettings() {
     post('settings').then(data => {
       if (!alive) return;
       setMeta(data);
-      setForm({ relayUrl: data.relayUrl || '', token: '', instanceId: data.instanceId || '', instanceName: data.instanceName || '' });
+      setForm({ relayUrl: data.relayUrl || '', token: '', instanceId: data.instanceId || '', instanceName: data.instanceName || '', lightweight: data.lightweight === true });
       setLoaded(true);
       if (data.native?.error) setError(data.native.error);
     }, failure => { if (alive) setError(failure.message); }).finally(() => { if (alive) setBusy(false); });
@@ -684,6 +684,16 @@ function ConnectionSettings() {
         </label>
       </div>
 
+      <div className="dsh-field-item">
+        <Checkbox
+          label="轻量模式（只转发会话，不加载目标机器的界面插件）"
+          checked={form.lightweight}
+          disabled={busy || !loaded}
+          onChange={(checked: boolean) => setForm(value => ({ ...value, lightweight: checked }))}
+        />
+        <span className="dsh-field-tip">切换更快：保留本机界面（仅 DSH 自带组件和远程会话入口，不加载第三方插件），转发目标机器的会话、工作区与对话。目标机器的插件界面和设置不可见，对话仍在目标机器执行；需要两端 DSH 版本一致。</span>
+      </div>
+
       {error && <div role="alert" className="dsh-alert-banner dsh-alert-error" style={{ color: 'var(--dsw-alias-state-error-primary)' }}>{error}</div>}
       {savedSuccess && !error && <div className="dsh-alert-banner dsh-alert-success">✓ 配置已保存并连接成功</div>}
 
@@ -697,7 +707,7 @@ function ConnectionSettings() {
             setBusy(true); setError(''); setSavedSuccess(false);
             try {
               const saved = await post('settings-save', form);
-              setMeta(saved); setForm(value => ({ ...value, token: '' }));
+              setMeta(saved); setForm(value => ({ ...value, token: '', lightweight: saved.lightweight === true }));
               if (saved.native?.error) {
                 setError(saved.native.error);
               } else if (!saved.relay?.connected) {

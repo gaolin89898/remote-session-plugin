@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { apply } from '../lib/index.js';
@@ -67,6 +67,7 @@ async function host(t, { relay = false, config = {}, sessionEvents = [], incompa
     return { status: response.status, body: await response.json() };
   };
   request.raw = (action, init = {}) => fetchHttp(base + action, { ...init, signal: AbortSignal.timeout(10000) });
+  request.home = home;
   return request;
 }
 
@@ -142,9 +143,24 @@ test('host runtime follows the DSH profile in state, settings and relay registra
   for (const [profile, runtime] of [['desktop', 'desktop'], ['web', 'web'], ['custom-web', 'web']]) {
     const request = await host(t, { relay: true, profile });
     assert.equal((await request('state')).body.self.runtime, runtime);
-    assert.equal((await request('settings')).body.runtime, runtime);
+    const settings = (await request('settings')).body;
+    assert.equal(settings.runtime, runtime);
+    assert.equal(settings.lightweight, false);
     assert.equal(registrations.at(-1).meta.runtime, runtime);
   }
+});
+
+test('lightweight switching mode persists and is exposed in settings', async t => {
+  t.mock.method(globalThis, 'fetch', relayFetch(() => {}));
+  const request = await host(t, { relay: true });
+  const saved = await request('settings-save', {
+    relayUrl: 'http://relay.fixture', token: 'fixture-only', instanceId: 'home', instanceName: 'Home', lightweight: true,
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.lightweight, true);
+  assert.equal((await request('settings')).body.lightweight, true);
+  const stored = JSON.parse(await readFile(path.join(request.home, 'remote-session-settings.json'), 'utf8'));
+  assert.equal(stored.lightweight, true);
 });
 
 test('peer runtime comes from the target metadata and stays unknown for older targets', async t => {
