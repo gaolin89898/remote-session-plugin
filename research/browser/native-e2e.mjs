@@ -235,7 +235,12 @@ async function boot(id) {
     relayUrl, token, instanceId: id, instanceName: id === 'home' ? '本机测试' : '远端测试', indexMs: 1000,
   }).map(([key, value]) => '    ' + key + ': ' + JSON.stringify(value)).join('\n')
     + '\n- id: workspace-controller\n  config:\n    documentsDirectory: ' + JSON.stringify(home)
-    + '\n- id: plugin-manager\n  config:\n    registry: ' + JSON.stringify(relayUrl + '/registry') + '\n    fallbackRegistries: []\n');
+    + '\n- id: plugin-manager\n  config:\n    registry: ' + JSON.stringify(relayUrl + '/registry') + '\n    fallbackRegistries: []\n'
+    // Keep onboarding and the preview notice out of the test: both hosts serve a
+    // fresh profile, and DSH 0.2.2 shows them as blocking dialogs after a remote
+    // composition switch.
+    + '\n- id: ui-settings-models\n  config:\n    credentialOnboarding: false\n'
+    + '- id: ui-settings-general\n  config:\n    welcomeNoticeVersion: "2026-09-28.1"\n');
   const port = await unusedPort();
   const proc = spawn(executable, ['--expose-internals', cli, '--profile', 'native-fixture', '--patch', overlay, '--host', '127.0.0.1', '--port', String(port), '--no-open'], {
     cwd: home, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', DSH_HOME: home }, windowsHide: true,
@@ -264,7 +269,11 @@ async function run() {
   page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const welcome = page.getByRole('dialog').filter({ hasText: '开始使用' });
   await page.addLocatorHandler(welcome, async () => {
-    await welcome.getByRole('button', { name: '关闭', exact: true }).click();
+    // The overlay stays a fallback: the isolated hosts suppress credential
+    // onboarding and the preview notice, and a forced click avoids a stacked
+    // dialog overlay blocking dismissal when one still appears.
+    const close = welcome.getByRole('button', { name: /^(关闭|继续)$/ });
+    if (await close.count()) await close.first().click({ force: true, timeout: 5000 }).catch(() => {});
   });
   const errors = [];
   page.on('pageerror', error => { errors.push(String(error)); console.error(error.stack); });
@@ -312,6 +321,31 @@ async function run() {
   assert.ok(await page.evaluate(() => window.__DSH_BOOT__.entries.some(entry => entry.id === '@deepseek-ai/dsh-experimental-client-ui-cot-translation')),
     'local desktop composition must exercise the optional translation plugin');
   await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+  const nativeRoute = '**/remote-session/api/native';
+  await page.route(nativeRoute, async route => {
+    const input = route.request().postDataJSON();
+    if (input?.operation !== 'probe' || input.peerId !== 'company') return route.continue();
+    const response = await route.fetch();
+    const payload = await response.json();
+    assert.equal(payload.ok, true);
+    payload.result.clientGraph.release.version += '-incompatible';
+    await route.fulfill({ response, json: payload });
+  });
+  const mismatch = await page.evaluate(async () => {
+    try { await window.__DSH_REMOTE_SESSION__.switchMachine('company'); return ''; }
+    catch (error) { return error.message; }
+  });
+  assert.match(mismatch, /两端 DSH 界面版本不兼容/);
+  assert.equal(await page.evaluate(() => window.__DSH_REMOTE_SESSION__.peerId), 'local');
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('dsh.remote-session.machine.v1')), null);
+  await page.evaluate(() => sessionStorage.setItem('dsh.remote-session.machine.v1', 'company'));
+  await page.reload();
+  await page.waitForFunction(() => window.__DSH_REMOTE_SESSION__?.peerId === 'local'
+    && window.__DSH_REMOTE_SESSION__.bootError.includes('两端 DSH 界面版本不兼容'), null, { timeout: 60000 });
+  await page.getByRole('button', { name: '远程会话', exact: true }).waitFor({ timeout: 60000 });
+  assert.equal(await page.locator('[data-slot-error="sidebar"]').count(), 0);
+  await page.unroute(nativeRoute);
+  console.log('PASS incompatible DSH build refuses switching and restores remembered selection without blank sidebar');
   // Set the shell marker after Web boot so the fixture keeps its Web carrier.
   await page.evaluate(() => { window.dshDesktopBoot = { ready() {} }; });
   await dismissPreview();
@@ -359,6 +393,15 @@ async function run() {
   await page.screenshot({ path: path.join(root, 'research/browser/out/native-machine-menu.png') });
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.setViewportSize({ width: 640, height: 900 });
+  // DSH 0.2.2+ treats a narrow viewport as a drawer layout: an open anchored menu
+  // closes and the sidebar becomes an inert drawer. Reload into that layout, then
+  // open the drawer and the machine menu before checking that it fits.
+  await page.reload();
+  await page.waitForFunction(() => window.__DSH_REMOTE_SESSION__?.peerId === 'local', null, { timeout: 60000 });
+  await dismissPreview();
+  const openDrawer = page.getByRole('button', { name: '打开侧边栏', exact: true });
+  if (await openDrawer.count()) await openDrawer.first().click();
+  await page.getByRole('button', { name: '远程会话', exact: true }).click();
   const menu = page.getByRole('menu');
   await menu.waitFor();
   assert.ok(await menu.locator('[data-machine-id="company"]').evaluate(row => {
@@ -425,8 +468,16 @@ async function run() {
   await checkEnvironment('company', '远程 · 远端测试');
   await page.setViewportSize({ width: 640, height: 900 });
   await page.emulateMedia({ colorScheme: 'dark' });
-  await page.getByRole('button', { name: '打开侧边栏', exact: true }).waitFor();
-  await page.locator('[data-remote-environment="company"].dsh-remote-environment-compact').waitFor();
+  // DSH 0.2.2+ renders the narrow sidebar as a drawer and keeps the wide footer
+  // status inside it; there is no collapsed rail variant at this layout.
+  await page.getByRole('button', { name: '打开侧边栏', exact: true }).first().waitFor();
+  await page.evaluate(() => {
+    const opener = [...document.querySelectorAll('button[aria-label="打开侧边栏"]')]
+      .find((element) => element.offsetWidth || element.offsetHeight);
+    opener?.click();
+  });
+  await page.waitForTimeout(500);
+  await page.locator('[data-remote-environment="company"]').waitFor();
   await checkEnvironment('company', '远程 · 远端测试');
   await page.screenshot({ path: path.join(root, 'research/browser/out/environment-remote-narrow-dark.png'), animations: 'disabled' });
   await page.setViewportSize({ width: 1280, height: 900 });

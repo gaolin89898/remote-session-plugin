@@ -18,6 +18,7 @@ function storage(entries = []) {
 }
 
 const coreEntries = ['dsh-remote-session', '@deepseek-ai/dsh-client-ui-workspace', '@deepseek-ai/dsh-api-session-controller'];
+const release = { version: '0.2.1-rc.3', commit: 'fixture-build' };
 
 function fixture(options = {}) {
   const calls = [];
@@ -29,7 +30,7 @@ function fixture(options = {}) {
       match: options.match || (pathname => pathname.startsWith('/dsh-market/') ? { kind: 'prefix', path: '/dsh-market/' } : null),
     },
     clientModules: {
-      graph: () => options.graph || ({ rev: 'fixture', entries, batches: [{ phase: 'application', url: 'plugins/??batch/client.js&rev=fixture', rev: 'fixture', entries: entries.map(e => e.id) }] }),
+      graph: () => options.graph || ({ rev: 'fixture', release, entries, batches: [{ phase: 'application', url: 'plugins/??batch/client.js&rev=fixture', rev: 'fixture', entries: entries.map(e => e.id) }] }),
       fetchBundle: async request => options.resource ? options.resource(request) : new Response('fixture', { headers: { 'content-type': 'application/javascript' } }),
     },
     connection: {
@@ -68,6 +69,7 @@ function fixture(options = {}) {
     sessionStorage: storage([['dsh.remote-session.machine.v1', 'company']]), localStorage,
     location: { reload: () => { reloaded = true; } }, addEventListener: () => {},
     __DSH_TRANSPORT__: options.transport,
+    __DSH_BOOT__: { release: options.hostRelease ?? release },
     __ModuleLoader__: { mode: 'queue', pendingQueue: [] },
     fetch: async (url, init) => {
       if (new URL(url).pathname !== new URL('remote-session/api/native', win.document.baseURI).pathname) {
@@ -283,6 +285,43 @@ test('machine switching rejects missing target UI components before changing sel
   } finally { await f.gateway.dispose(); }
 });
 
+test('machine switching rejects mixed DSH shell versions before changing selection', async () => {
+  for (const targetRelease of [
+    { version: '0.2.1-rc.2', commit: 'older-build' },
+    { version: release.version, commit: 'another-build' },
+    undefined,
+  ]) {
+    const f = fixture();
+    try {
+      const graph = f.gateway.ctx.clientModules.graph();
+      f.gateway.ctx.clientModules.graph = () => ({ ...graph, release: targetRelease });
+      await assert.rejects(f.win.__DSH_REMOTE_SESSION__.switchMachine('another'), /DSH.*版本/);
+      assert.equal(f.win.sessionStorage.getItem('dsh.remote-session.machine.v1'), 'company');
+      assert.equal(f.reloaded(), false);
+    } finally { await f.gateway.dispose(); }
+  }
+});
+
+test('remembered remote selection restores local UI before activating a mixed DSH build', async () => {
+  const f = fixture({ hostRelease: { version: '0.2.1-rc.2', commit: 'older-build' } });
+  try {
+    const localGraph = f.win.__DSH_BOOT__;
+    const registration = { id: 'local-bootstrap' };
+    f.win.__ModuleLoader__.pendingQueue.push(registration);
+    let activated = false;
+    void f.win.__DSH_BOOT_READY__.promise.then(() => { activated = true; });
+    await f.win.__DSH_BOOT_READY__.resolve();
+    assert.equal(f.win.sessionStorage.getItem('dsh.remote-session.machine.v1'), 'local');
+    assert.equal(f.reloaded(), true);
+    assert.equal(activated, false);
+    assert.equal(f.win.__DSH_BOOT__, localGraph);
+    assert.deepEqual(f.win.__ModuleLoader__.pendingQueue, [registration]);
+    const failure = f.win.sessionStorage.getItem('dsh.remote-session.boot-failure.v1');
+    assert.match(failure, /入口端 0\.2\.1-rc\.2 \(older-build\)/);
+    assert.match(failure, /目标端 0\.2\.1-rc\.3 \(fixture-build\)/);
+  } finally { await f.gateway.dispose(); }
+});
+
 test('remote boot loads the target composition, including remote-only plugins, before desktop activation', async () => {
   const f = fixture({ clientEntries: [...coreEntries, 'dependent-ui', '@deepseek-ai/dsh-client-hmr'],
     transport: { rpc: { call() { throw new Error('local RPC leaked'); } }, streamBaseUrl: 'http://127.0.0.1:9000' } });
@@ -292,7 +331,7 @@ test('remote boot loads the target composition, including remote-only plugins, b
     id, url: 'plugins/' + id, rev: 'fixture', ...(id === 'dependent-ui' ? { inject: [translation] } : {}),
   }));
   try {
-    const original = { rev: 'fixture', entries, batches: [{ phase: 'application', url: 'plugins/batch', rev: 'fixture', entries: entries.map(e => e.id) }] };
+    const original = { rev: 'fixture', release, entries, batches: [{ phase: 'application', url: 'plugins/batch', rev: 'fixture', entries: entries.map(e => e.id) }] };
     f.win.__DSH_BOOT__ = original;
     await f.win.__DSH_BOOT_READY__.resolve();
     await f.win.__DSH_BOOT_READY__.promise;
