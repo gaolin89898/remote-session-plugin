@@ -1,6 +1,6 @@
 # DSH AI 工具箱
 
-独立 Vue 页面与 DSH 插件入口，当前版本 **0.1.9**。Go 后端仍由本机单独运行；插件不启动、停止或打包 Go 程序，不读取 `config.json`、`auths/` 或 `data/`。
+独立 Vue 页面与 DSH 插件入口，当前版本 **0.1.10**。Go 后端仍由本机单独运行；插件不启动、停止或打包 Go 程序，不读取 `config.json`、`auths/` 或 `data/`。
 
 ## 构建与打包
 
@@ -13,7 +13,7 @@ npm test
 npm pack
 ```
 
-构建生成 `web/dist/` 和插件的 `public/`，打包生成 `dsh-workbuddy-accounts-0.1.9.tgz`。包内只包含页面、DSH 入口和本机接口转发代码，不包含账号数据、密钥或 Go 二进制。
+构建生成 `web/dist/` 和插件的 `public/`，打包生成 `dsh-workbuddy-accounts-0.1.10.tgz`。包内只包含页面、DSH 入口和本机接口转发代码，不包含账号数据、密钥或 Go 二进制。
 
 原有 `web` 目录的 `npm run build` 继续生成 Go 内嵌页面；独立版本使用 `npm run build:standalone`，不依赖 Go 编译。两个版本共用页面源码。更新插件时先用 `npm version patch --no-git-tag-version` 递增版本，并同步文档中的包名，再构建、检查和打包，避免缓存复用同版本旧资源。
 
@@ -29,7 +29,7 @@ npm pack
 2. 在 DSH 插件管理器安装本地 `.tgz`，或使用 CLI。桌面版使用 `desktop` profile：
 
    ```powershell
-   dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.9.tgz"
+   dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.10.tgz"
    ```
 
    独立 Web 版将 `--profile desktop` 改为 `--profile web`。更新已安装插件时使用同一命令，包名以 `npm pack` 输出为准。
@@ -40,7 +40,7 @@ npm pack
 
 切换电脑会重新加载页面，管理密钥、备注与页面偏好按电脑隔离；首次连接每台电脑需输入对应 Go 服务的管理密钥。远端离线、未安装插件或未启动后端时显示连接错误，不回退读取本机数据。远程导入文件上限为 16 MB。本插件不开放远程 URL 配置或 Go 公网监听，目标端仍通过回环地址调用自己的后端。
 
-已验证 DSH `0.2.1-rc.5` 的本机 Web 模式，以及桌面版 `desktop` profile 使用本机 HTTP 页面时的菜单、主题和接口连接。目标端接口桥接仅接受来自该电脑的同源 HTTP/HTTPS 请求；远程会话负责在目标 DSH 内发起请求，Go 服务的 Bearer 管理密钥仍需验证。
+已验证 DSH `0.2.2-rc.1` 的本机 Web 模式，以及桌面版 `desktop` profile 使用本机 HTTP 页面时的菜单、主题和接口连接；宽屏与窄屏抽屉布局下侧栏菜单、嵌入页面均可正常打开。目标端接口桥接仅接受来自该电脑的同源 HTTP/HTTPS 请求；远程会话负责在目标 DSH 内发起请求，Go 服务的 Bearer 管理密钥仍需验证。
 
 关闭页面或卸载插件不会关闭 Go 后端，后台签到继续由 Go 服务执行。账号和签到设置仍保存在原来的 `auths/`、`data/` 和 `config.json`；签到选项保存在 `data/account-settings.json`（跟随 `state_file` 目录），后端重启后保留。
 
