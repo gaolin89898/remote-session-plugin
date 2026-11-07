@@ -18,6 +18,8 @@
 
 ---
 
+> 本目录是 [remote-session-plugin](https://github.com/gaolin89898/remote-session-plugin) 的 `toolbox/` 子项目（原 workbuddy2api-panel 仓库），命令默认在 `toolbox/` 下执行；DSH 插件已并入仓库根目录的 `dsh-remote-session`。
+
 ## 使用声明（必读）
 
 本项目用于管理本人授权的 WorkBuddy / CodeBuddy、Trae 和 Qoder 账号，以及在本机或私有环境接入个人工具。请遵守各平台服务条款，不得用于批量注册、共享或转售账号额度、卡密分发及其他违规用途。
@@ -202,23 +204,15 @@ go test ./...
 
 ### DSH 插件
 
-当前插件版本为 **0.1.10**。在 `dsh-plugin` 目录构建、检查并打包：
+DSH 插件已并入 `dsh-remote-session`（本仓库根目录），不再单独打包安装。升级时卸载旧的 `dsh-workbuddy-accounts` 插件，安装/更新合并后的插件即可；侧栏「AI 工具箱」入口、菜单与远程跟随行为不变。构建与验证见仓库根目录 [docs/ai-toolbox.md](../docs/ai-toolbox.md)。
 
-```powershell
-npm --prefix ../web ci
-npm run build
-npm test
-npm pack
-dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.10.tgz"
-```
-
-独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端需在目标电脑单独运行。使用远程会话插件 1.2.2 或更新版本时，页面、账号统计、设置与客户端操作跟随当前电脑；目标电脑也需安装 AI 工具箱 0.1.9 或更新版本。各电脑密钥和备注独立保存，连接失败会报错，不回退显示本机数据。已在 DSH `0.2.2-rc.1` 上验证宽屏与窄屏抽屉布局下的菜单、主题和接口连接。安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。
+独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端需在目标电脑单独运行。使用同一版本插件时，页面、账号统计、设置与客户端操作跟随当前电脑；目标电脑也需安装合并后的插件并运行账号服务。各电脑密钥和备注独立保存，连接失败会报错，不回退显示本机数据。已在 DSH `0.2.2-rc.1` 上验证宽屏与窄屏抽屉布局下的菜单、主题和接口连接。
 
 ### Docker Compose
 
 ```bash
-git clone https://github.com/gaolin89898/workbuddy2api-panel.git
-cd workbuddy2api-panel
+git clone https://github.com/gaolin89898/remote-session-plugin.git
+cd remote-session-plugin/toolbox
 cp config.example.json config.json
 # 编辑配置中的管理密钥，然后启动
 docker compose up -d --build
@@ -234,7 +228,7 @@ docker compose restart
 docker compose down
 ```
 
-镜像构建与发布配置见 [.github/workflows/docker-ghcr.yml](.github/workflows/docker-ghcr.yml)，使用预构建镜像时以当前仓库发布的镜像名和标签为准。
+镜像构建与发布配置见 [.github/workflows/wb2api-docker.yml](../.github/workflows/wb2api-docker.yml)，使用预构建镜像时以当前仓库发布的镜像名和标签为准。
 
 ### 添加账号（登录）
 

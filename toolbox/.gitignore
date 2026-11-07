@@ -50,5 +50,3 @@ server.exe
 node_modules/
 web/.vite/
 web/dist/
-dsh-plugin/public/
-dsh-plugin/*.tgz

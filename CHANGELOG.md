@@ -7,6 +7,9 @@
 - 配套 dsh-Go fork 新增手机工作台和纯 Dart 网关客户端，复用已有 SSH 主机、安全存储、指纹校验与回环转发。
 - 新接口独立于现有 relay 和完整界面切换；执行机器部署网关，DSH 执行端无需安装本插件。
 - 接入要求、协议、配置示例及当前边界见 `docs/agent-workbench.md`。本次尚未发布版本或 APK。
+- 合并 workbuddy2api-panel 仓库为 `toolbox/`：AI 工具箱（WorkBuddy / Trae / Qoder 账号、签到、任务与奖励页面）并入本插件，不再单独安装；Go 账号服务仍单独运行，源码同仓库。
+- 侧栏保留「远程会话」和「AI 工具箱」两个入口；AI 工具箱页面与接口桥接由本插件提供，跟随当前选中的电脑。升级时先卸载旧的 `dsh-workbuddy-accounts` 插件。
+- 发布约定：插件使用 `vX.Y.Z` tag，Go 账号服务使用 `wb2api-vX.Y.Z` tag；AI 工具箱页面资源随插件包发布。
 
 ## 1.2.6 - 2026-11-05
 

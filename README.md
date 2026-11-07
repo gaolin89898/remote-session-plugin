@@ -6,6 +6,8 @@
 
 新增 **Agent 工作台**：桌面 DSH 和配套 dsh-Go 手机端可通过 HTTP(S) 或 SSH 连接独立网关，选择执行机器上的 DSH、Codex、OpenCode。远端 DSH 无需安装插件，工作台不依赖 relay。桌面入口在侧边栏 **远程会话** 菜单（SSH / 网关直连电脑），手机端在 **远程主机 → Agent 工作台**；局域网直连只发生在手机和电脑之间。见[架构、启动与接入说明](docs/agent-workbench.md)。以下 relay 要求针对原有的完整 DSH 界面切换。
 
+同一插件还内置 **AI 工具箱**（WorkBuddy / Trae / Qoder 账号、签到、任务与奖励页面），跟随当前选中的电脑工作；账号数据仍由本机单独运行的 Go 服务保存（源码在本仓库 `toolbox/`）。见 [AI 工具箱](docs/ai-toolbox.md)。
+
 > **需要自备服务器。** 插件不会替你托管或部署中转服务。本机和远端 DSH 都必须能访问你自己的 relay 服务器。按[部署指南](relay/README.md)操作即可。
 
 如果你希望 AI 代为部署，可把[部署指南中的提示词](relay/README.md)交给能通过 SSH 访问服务器的 AI。
@@ -27,6 +29,18 @@ git clone https://github.com/gaolin89898/remote-session-plugin.git
 cd remote-session-plugin
 "%LOCALAPPDATA%\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd" plugin --profile desktop add "file:%CD%"
 ```
+
+原独立插件 `dsh-workbuddy-accounts`（AI 工具箱）已并入本插件：从旧版升级时先卸载旧插件再安装本插件，远程机器上的旧插件同样处理。
+
+## 仓库结构
+
+| 路径 | 内容 |
+| --- | --- |
+| `lib/`、`tools/`、`cordis.patch.yml` | DSH 插件本体：远程会话、Agent 工作台、AI 工具箱入口 |
+| `public/` | AI 工具箱页面资源（由 `toolbox/web` 构建） |
+| `gateway/` | 独立 Agent 网关（DSH / Codex / OpenCode） |
+| `relay/` | 自建 relay 服务端 |
+| `toolbox/` | Go 账号服务 + Vue 页面（原 workbuddy2api-panel 仓库，MIT） |
 
 ## 配置
 
@@ -59,6 +73,17 @@ cd remote-session-plugin
 
 在 **设置 → 远程会话 → 插件同步** 中选择目标机器，可安装缺少的插件、更新已发布插件和同步启用状态。插件配置、令牌和本地路径不会复制。
 
+## AI 工具箱
+
+侧栏 **AI 工具箱** 内置 WorkBuddy / Trae / Qoder 账号管理、签到、任务中心、活动奖励和运行日志。页面与账号数据跟随当前选中的电脑，每台电脑需要单独运行 Go 账号服务：
+
+```powershell
+cd toolbox
+go run ./cmd/server -config config.json   # 默认监听 127.0.0.1:7863
+```
+
+首次打开需输入该电脑 `config.json` 里的管理密钥。端口可通过插件配置 `backendPort` 修改；插件只转发本机回环接口，不读取账号数据，也不启动 Go 服务。升级旧版独立插件前先卸载 `dsh-workbuddy-accounts`。
+
 ## 重启 DSH
 
 机器菜单中远程机器右侧的重启图标用于重启该机器上的 DSH，点击后确认，正在运行的任务会中断。重启当前连接的实例后，界面等待它重新上线并自动刷新。
@@ -84,6 +109,19 @@ npm test
 npm run test:native
 ```
 
+```powershell
+# 仅修改 AI 工具箱页面时需要（页面资源随插件包提交）
+npm --prefix toolbox/web ci
+npm --prefix toolbox/web run build:standalone
+npm run build:toolbox
+```
+
+Go 账号服务在 `toolbox/` 下按原方式验证：`cd toolbox && go build ./... && go test ./...`。
+
 `test:native` 在临时目录启动两个真实 DSH 实例，通过浏览器验证完整界面切换、远端独有插件、不同插件版本、原生 API 和插件 HTTP 接口的远端读写与本机隔离、原生工作区、附件上传、插件同步与远端重启。需要已安装 Windows 版 DeepSeek Harness 和 Chromium；可通过 `DSH_DESKTOP`、`DSH_CHROMIUM` 指定路径。详情见 [测试说明](test/README.md)。
+
+## 发布
+
+插件与 Go 账号服务同仓库、分开发布：插件用 `vX.Y.Z` tag 和 GitHub Release，Go 服务用 `wb2api-vX.Y.Z` tag 触发五平台二进制与容器镜像；AI 工具箱页面资源随插件包一起发布。
 
 旧 Vendor 方案已[归档](research/legacy-vendor/README.md)，不参与当前构建或测试。
