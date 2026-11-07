@@ -47,7 +47,7 @@ export class CodexAdapter extends ProcessAdapter {
   capabilities = { history: true, streaming: true, cancel: true, approvals: true, files: false, terminal: false };
   async initialize() {
     await this.process(['app-server']);
-    await this.rpc.call('initialize', { clientInfo: { name: 'dsh_agent_workbench', version: '1.2.6' }, capabilities: {} });
+    await this.rpc.call('initialize', { clientInfo: { name: 'dsh_agent_workbench', version: '1.2.7' }, capabilities: {} });
     this.rpc.notify('initialized', {});
   }
   async list(workspace) {
@@ -126,7 +126,7 @@ export class OpenCodeAdapter extends ProcessAdapter {
   capabilities = { history: true, streaming: true, cancel: true, approvals: true, files: false, terminal: false };
   async initialize() {
     await this.process(['acp']);
-    this.info = await this.rpc.call('initialize', { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: 'dsh-agent-workbench', version: '1.2.6' } });
+    this.info = await this.rpc.call('initialize', { protocolVersion: 1, clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false }, clientInfo: { name: 'dsh-agent-workbench', version: '1.2.7' } });
     this.capabilities.history = this.info.agentCapabilities?.loadSession === true;
   }
   async list(workspace) {
