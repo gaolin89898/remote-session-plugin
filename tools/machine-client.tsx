@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { AgentWorkbench } from './workbench-client';
 import { Button, Checkbox, Menu, MenuItemButton, Modal, IconDownloadOutlineRegular, IconLinkOutlineRegular, IconRefreshOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives';
 
 export const name = 'dsh-remote-session';
@@ -730,6 +731,9 @@ function ConnectionSettings() {
 }
 
 export function apply(ctx: any) {
+  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+    name: 'sidebar.panellist', id: 'agent-workbench', order: 51, label: () => 'Agent 工作台',
+  }, AgentWorkbench));
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
     name: 'sidebar.footer.action', id: 'remote-session-environment', order: 100,
   }, EnvironmentStatus));

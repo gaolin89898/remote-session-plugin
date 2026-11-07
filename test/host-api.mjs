@@ -101,6 +101,19 @@ function relayFetch(onPublish, peers = [peer], results = {}) {
   };
 }
 
+test('workbench routes use entry authentication and never return saved gateway tokens', async t => {
+  const blocked = await host(t, { forbidden: true });
+  assert.equal((await blocked('workbench/hosts')).status, 403);
+  const request = await host(t);
+  const saved = await request('workbench/save', { name: 'Agent node', mode: 'direct', url: 'http://127.0.0.1:3490', token: 'fixture-secret-'.repeat(4) });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.hosts[0].name, 'Agent node');
+  assert.equal(saved.body.hosts[0].token, undefined);
+  assert.equal((await request.raw('workbench/hosts')).status, 405);
+  const list = await request('workbench/hosts');
+  assert.equal(list.body.hosts[0].connected, false);
+});
+
 test('RPC timeout settles while publish is pending and a late publish failure is handled', { timeout: 15000 }, async t => {
   const started = Promise.withResolvers();
   const published = Promise.withResolvers();

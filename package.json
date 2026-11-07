@@ -5,10 +5,16 @@
   "type": "module",
   "scripts": {
     "build": "node tools/build-machine-client.mjs",
-    "test": "node --test test/host-api.mjs test/native-transport.mjs test/plugin-sync.mjs test/relay-server.mjs test/restart.mjs",
+    "test": "node --test test/host-api.mjs test/native-transport.mjs test/plugin-sync.mjs test/relay-server.mjs test/restart.mjs test/agent-gateway.mjs test/dsh-agent.mjs",
+    "gateway:init": "node gateway/cli.mjs init",
+    "gateway:serve": "node gateway/cli.mjs serve",
+    "gateway:probe": "node tools/probe-agents.mjs",
+    "gateway:probe-dsh": "node tools/probe-dsh.mjs",
+    "test:gateway": "node --test test/agent-gateway.mjs test/dsh-agent.mjs",
+    "test:workbench": "node research/browser/workbench-e2e.mjs",
     "test:native": "node research/browser/native-e2e.mjs"
   },
-  "description": "Switches to a remote DSH interface, plugins, settings, workspaces and sessions; requires your own relay server.",
+  "description": "Remote DSH sessions and a standalone multi-Agent workbench for desktop and dsh-Go over HTTP(S) or SSH.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
@@ -25,6 +31,11 @@
     "lib/plugin-sync.js",
     "lib/restart.js",
     "lib/restart-helper.cjs",
+    "lib/workbench.js",
+    "gateway/",
+    "docs/agent-workbench.md",
+    "tools/probe-agents.mjs",
+    "tools/probe-dsh.mjs",
     "relay/server.cjs",
     "relay/README.md",
     "relay/dsh-relay.service",
@@ -87,5 +98,8 @@
     "shiki": "^4.5.0",
     "simple-icons": "^16.31.0",
     "zustand": "^5.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
   }
 }

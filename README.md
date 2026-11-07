@@ -4,6 +4,8 @@
 
 [更新记录](CHANGELOG.md)
 
+新增 **Agent 工作台**：桌面 DSH 和配套 dsh-Go 手机端可通过 HTTP(S) 或 SSH 连接独立网关，选择执行机器上的 DSH、Codex、OpenCode。远端 DSH 无需安装插件，工作台不依赖 relay。见[架构、启动与接入说明](docs/agent-workbench.md)。以下 relay 要求针对原有的完整 DSH 界面切换。
+
 > **需要自备服务器。** 插件不会替你托管或部署中转服务。本机和远端 DSH 都必须能访问你自己的 relay 服务器。按[部署指南](relay/README.md)操作即可。
 
 如果你希望 AI 代为部署，可把[部署指南中的提示词](relay/README.md)交给能通过 SSH 访问服务器的 AI。
