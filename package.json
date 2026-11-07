@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "node tools/build-machine-client.mjs",
-    "test": "node --test test/host-api.mjs test/native-transport.mjs test/plugin-sync.mjs test/relay-server.mjs test/restart.mjs test/agent-gateway.mjs test/dsh-agent.mjs",
+    "build:toolbox": "npm --prefix toolbox/web run build:standalone && node tools/build-toolbox.mjs",
+    "test": "node --test test/host-api.mjs test/native-transport.mjs test/plugin-sync.mjs test/relay-server.mjs test/restart.mjs test/agent-gateway.mjs test/dsh-agent.mjs test/toolbox-server.test.mjs test/toolbox-remote.test.mjs",
+    "preview:toolbox": "node tools/preview-toolbox.mjs",
+    "prepack": "node tools/check-package.mjs",
     "gateway:init": "node gateway/cli.mjs init",
     "gateway:serve": "node gateway/cli.mjs serve",
     "gateway:probe": "node tools/probe-agents.mjs",
@@ -14,7 +17,7 @@
     "test:workbench": "node research/browser/workbench-e2e.mjs",
     "test:native": "node research/browser/native-e2e.mjs"
   },
-  "description": "Remote DSH sessions and a standalone multi-Agent workbench for desktop and dsh-Go over HTTP(S) or SSH.",
+  "description": "Remote DSH sessions, a standalone multi-Agent workbench, and the AI toolbox for desktop and dsh-Go over HTTP(S) or SSH.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
@@ -32,8 +35,13 @@
     "lib/restart.js",
     "lib/restart-helper.cjs",
     "lib/workbench.js",
+    "lib/toolbox-server.js",
+    "public/",
     "gateway/",
     "docs/agent-workbench.md",
+    "docs/ai-toolbox.md",
+    "toolbox/LICENSE",
+    "toolbox/THIRD_PARTY_NOTICES.txt",
     "tools/probe-agents.mjs",
     "tools/probe-dsh.mjs",
     "relay/server.cjs",
@@ -52,7 +60,7 @@
   "dsh": {
     "manifestVersion": 1,
     "engines": {
-      "dsh": ">=0.2.1-rc.2"
+      "dsh": ">=0.2.1-rc.5"
     },
     "bundle": {
       "patch": "./cordis.patch.yml"

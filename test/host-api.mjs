@@ -19,8 +19,17 @@ async function host(t, { relay = false, config = {}, sessionEvents = [], incompa
     await writeFile(path.join(directory, 'session.jsonl'), [header, ...sessionEvents].map(value => JSON.stringify(value)).join('\n') + '\n');
   }
   const cleanups = [];
-  let handler;
-  const server = createServer((req, res) => { void handler(req, res); });
+  const routes = new Map();
+  const server = createServer((req, res) => {
+    const pathname = new URL(req.url, 'http://fixture.invalid').pathname;
+    const route = [...routes.values()].find(item => pathname === item.path || pathname.startsWith(item.path + '/'));
+    if (!route) {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end('{"ok":false,"error":"unknown endpoint"}');
+      return;
+    }
+    void route.handler(req, res);
+  });
   t.after(async () => {
     for (const cleanup of cleanups.reverse()) await cleanup?.();
     server.closeAllConnections();
@@ -34,7 +43,7 @@ async function host(t, { relay = false, config = {}, sessionEvents = [], incompa
     on() { return () => {}; },
     get(name) { if (name === 'profileContext') return { name: profile }; },
     webServer: {
-      register(route) { handler = route.handler; return () => {}; },
+      register(route) { routes.set(route.path, route); return () => routes.delete(route.path); },
       match: () => null,
       getOrigin: () => 'http://127.0.0.1:' + server.address().port,
     },

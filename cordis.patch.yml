@@ -13,6 +13,7 @@
 #   indexMs      how often the local session index is pushed to the relay (ms)
 #   maxSessions  how many sessions are published per device
 #   maxMessages  transcript window size requested from the owning device
+#   backendPort  loopback port of the local WorkBuddy account service (AI toolbox)
 - insert:
     - id: remote-session
       name: 'dsh-remote-session'
@@ -24,3 +25,4 @@
         indexMs: 10000
         maxSessions: 60
         maxMessages: 100
+        backendPort: 7863

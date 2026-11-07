@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createHandler, PREFIX } from '../lib/server.js';
-import { createHostRuntime } from '../../web/src/hostRuntime.js';
+import { createHandler, PREFIX } from '../lib/toolbox-server.js';
+import { createHostRuntime } from '../toolbox/web/src/hostRuntime.js';
 
 async function serve(t, handler) {
   const server = http.createServer(handler);

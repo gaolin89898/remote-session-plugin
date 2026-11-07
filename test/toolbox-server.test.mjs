@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createHandler, localRequest, PREFIX } from '../lib/server.js';
-import { apply } from '../lib/index.js';
+import { createHandler, localRequest, PREFIX } from '../lib/toolbox-server.js';
+import { registerToolboxRoute } from '../lib/index.js';
 
 async function serve(t, handler) {
   const server = http.createServer(handler);
@@ -73,12 +73,11 @@ test('preserves authentication errors and never follows backend redirects', asyn
   assert.equal(calls, 2);
 });
 
-test('plugin registers one disposable route without starting the backend', () => {
-  let registered, disposed = false, cleanup;
-  apply({
+test('plugin registers one disposable toolbox route without starting the backend', () => {
+  let registered, disposed = false;
+  const cleanup = registerToolboxRoute({
     webServer: { register(route) { registered = route; return () => { disposed = true; }; } },
-    effect(fn) { cleanup = fn(); },
-  });
+  }, 7863);
   assert.equal(registered.path, PREFIX.slice(0, -1));
   assert.equal(typeof registered.handler, 'function');
   cleanup();
