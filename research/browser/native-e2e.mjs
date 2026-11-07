@@ -39,6 +39,27 @@ for (const [name, value] of Object.entries(fixtureFiles)) fs.writeFileSync(path.
 const fixtureArchive = path.join(scratch, 'registry/plugin.tgz');
 assert.equal(spawnSync('tar', ['-czf', fixtureArchive, '-C', path.dirname(fixtureDir), 'package'], { windowsHide: true }).status, 0);
 const fixtureTarball = fs.readFileSync(fixtureArchive);
+// Plugin sync reinstalls the profile, which resolves this plugin's own `ws`
+// dependency through the fixture registry; serve it so the test stays offline.
+const wsManifest = JSON.parse(fs.readFileSync(path.join(root, 'node_modules/ws/package.json'), 'utf8'));
+const wsStage = path.join(scratch, 'registry/ws');
+fs.mkdirSync(path.join(wsStage, 'package'), { recursive: true });
+fs.cpSync(path.join(root, 'node_modules/ws'), path.join(wsStage, 'package'), { recursive: true });
+// The plugin add in boot() resolves against the real registry, so the profile
+// lock may pin a newer ws than the local node_modules copy; stage that version
+// as a copy with the same contents and a matching package.json version.
+const wsAliasVersion = '8.22.1';
+const wsAliasStage = path.join(scratch, 'registry/ws-alias');
+fs.mkdirSync(path.join(wsAliasStage, 'package'), { recursive: true });
+fs.cpSync(path.join(root, 'node_modules/ws'), path.join(wsAliasStage, 'package'), { recursive: true });
+fs.writeFileSync(path.join(wsAliasStage, 'package/package.json'),
+  JSON.stringify({ ...wsManifest, version: wsAliasVersion }, null, 2));
+const packWs = (stage, file) => {
+  assert.equal(spawnSync('tar', ['-czf', file, '-C', stage, 'package'], { windowsHide: true }).status, 0);
+  return fs.readFileSync(file);
+};
+const wsTarball = packWs(wsStage, path.join(scratch, 'registry/ws.tgz'));
+const wsAliasTarball = packWs(wsAliasStage, path.join(scratch, 'registry/ws-8221.tgz'));
 const relay = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/v1/publish' && relayDelay > 0) await new Promise(resolve => setTimeout(resolve, relayDelay));
@@ -50,6 +71,18 @@ const relay = http.createServer(async (req, res) => {
     return;
   }
   if (url.pathname === '/registry/plugin.tgz') { res.writeHead(200, { 'content-type': 'application/octet-stream' }); setTimeout(() => res.end(fixtureTarball), 1500); return; }
+  if (url.pathname === '/registry/ws') {
+    const dist = version => ({
+      tarball: relayUrl + (version === wsAliasVersion ? '/registry/ws-8221.tgz' : '/registry/ws.tgz'),
+      integrity: 'sha512-' + createHash('sha512').update(version === wsAliasVersion ? wsAliasTarball : wsTarball).digest('base64'),
+    });
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ name: 'ws', 'dist-tags': { latest: wsAliasVersion },
+      versions: { [wsManifest.version]: { ...wsManifest, dist: dist(wsManifest.version) }, [wsAliasVersion]: { ...wsManifest, version: wsAliasVersion, dist: dist(wsAliasVersion) } } }));
+    return;
+  }
+  if (url.pathname === '/registry/ws.tgz') { res.writeHead(200, { 'content-type': 'application/octet-stream' }); res.end(wsTarball); return; }
+  if (url.pathname === '/registry/ws-8221.tgz') { res.writeHead(200, { 'content-type': 'application/octet-stream' }); res.end(wsAliasTarball); return; }
   if (url.pathname === '/v1/stream') {
     assert.equal(url.searchParams.has('token'), false, 'relay URLs must not contain credentials');
     if (req.headers.authorization !== 'Bearer ' + token) { res.writeHead(403); res.end(); return; }
