@@ -1,0 +1,152 @@
+.benefits-view { min-width: 0; }
+.benefit-heading { min-height: 84px; }
+.benefit-heading .heading-actions { flex-wrap: wrap; justify-content: flex-end; }
+.benefit-content { display: block; width: 100%; min-height: 220px; }
+.benefit-notice { margin: 0 0 20px; overflow-wrap: anywhere; }
+.benefit-stats { margin-bottom: 24px; }
+.benefit-layout { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+.benefit-primary, .benefit-side-section, .benefit-packages { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.benefit-primary { display: flex; flex-direction: column; min-height: 600px; }
+.benefit-panel-heading { min-height: 58px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.benefit-panel-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.benefit-panel-title > span, .benefit-caption { color: var(--muted); font-size: 10px; }
+.benefits-view h2 { font-size: 13px; margin: 0; }
+.benefit-panel-heading .arco-radio-group { border: 1px solid var(--line); background: var(--surface-secondary); border-radius: 6px; padding: 2px; display: flex; flex-wrap: wrap; }
+.benefit-panel-heading .arco-radio-button { font-size: 10px; padding-inline: 8px; height: 25px; line-height: 25px; background: transparent; }
+.benefit-panel-heading .arco-radio-button-checked { color: var(--accent); background: var(--surface); border-radius: 4px; }
+.benefit-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 14px 20px; }
+.benefit-toolbar > .arco-select { width: 200px; max-width: 100%; }
+.benefit-toolbar > .arco-input-wrapper { flex: 1; min-width: 110px; }
+.benefit-toolbar > .arco-btn { width: 36px; flex-shrink: 0; padding: 0; }
+.benefit-toolbar-hint { margin-left: auto; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.benefit-overall-progress { padding: 0 20px 14px; }
+.benefit-overall-progress .inline-between { font-size: 10px; color: var(--muted); margin-bottom: 7px; }
+.benefit-overall-progress strong { color: var(--ink); font: 500 11px Inter, sans-serif; }
+.benefits-view .arco-progress-line { height: 4px; }
+.benefits-view .arco-table { min-width: 0; background: transparent; }
+.benefits-view .arco-table-container { border: 0; border-radius: 0; }
+.benefits-view .arco-table-th { color: var(--muted); background: var(--surface-secondary); font-size: 10px; font-weight: 400; }
+.benefits-view .arco-table-cell { font-size: 11px; overflow-wrap: anywhere; padding: 13px 16px; }
+.benefits-view .arco-table-td { border-color: var(--line); background: var(--surface); }
+.benefits-view .arco-table-pagination { padding: 0 20px; margin-bottom: 15px; }
+.benefits-view .arco-tag { border-radius: 4px; font-size: 10px; max-width: 100%; }
+.benefit-detail { display: block; color: var(--muted); font-size: 10px; margin-top: 4px; white-space: normal; overflow-wrap: anywhere; }
+.benefit-panel-footer { margin-top: auto; border-top: 1px solid var(--line); background: var(--surface-secondary); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 20px; min-height: 46px; color: var(--muted); font-size: 10px; }
+.benefit-panel-footer > * { min-width: 0; overflow-wrap: anywhere; }
+.task-identity { display: flex; gap: 12px; align-items: flex-start; }
+.task-symbol, .reward-symbol { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-size: 15px; }
+.task-symbol.available, .reward-symbol.warm { color: var(--warning); background: var(--warning-soft); }
+.task-identity > div { min-width: 0; }
+.task-identity strong { font-size: 12px; font-weight: 500; }
+.benefit-aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.benefit-side-section { padding: 20px; }
+.benefit-side-section > .inline-between { margin-bottom: 18px; flex-wrap: wrap; }
+.benefit-side-section > .inline-between > a { color: var(--accent); font-size: 10px; }
+.benefit-side-section .benefit-overall-progress { padding: 0; margin-bottom: 15px; }
+.benefit-side-section > .arco-select { width: 100%; margin: 16px 0 10px; }
+.benefit-side-section .arco-empty { padding: 24px 0; font-size: 11px; }
+.queue-line { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.queue-line .inline-between { gap: 8px; font-size: 11px; align-items: start; }
+.queue-line small { display: block; color: var(--muted); overflow-wrap: anywhere; font-size: 10px; margin-top: 4px; }
+.coverage-line { padding: 13px 0; border-bottom: 1px solid var(--line); }
+.coverage-line .inline-between { gap: 6px; align-items: start; }
+.coverage-line small { color: var(--muted); font-size: 10px; flex-shrink: 0; padding-top: 3px; }
+.coverage-line .arco-progress { margin-top: 8px; }
+.account-caption { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 11px; }
+.account-caption > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.account-initial { display: grid; place-items: center; width: 24px; height: 24px; background: var(--accent-soft); color: var(--accent); border-radius: 6px; flex-shrink: 0; font-size: 10px; }
+.benefit-side-note { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-top: 16px; color: var(--muted); font-size: 10px; }
+.scan-line { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 11px; overflow-wrap: anywhere; }
+.balance-line { padding: 9px 0; }
+.balance-line .inline-between { margin-bottom: 7px; font-size: 11px; align-items: start; }
+.balance-line .inline-between > span { min-width: 0; overflow-wrap: anywhere; }
+.balance-line strong { font: 500 11px Inter, sans-serif; white-space: nowrap; }
+.benefit-net { padding-top: 16px; margin-top: 14px; border-top: 1px solid var(--line); }
+.benefit-net > span, .benefit-net > small { display: block; color: var(--muted); font-size: 10px; }
+.benefit-net > strong { display: block; font: 500 23px/1.6 Inter, sans-serif; margin: 3px 0; }
+.benefit-net strong small { font-size: 11px; }
+.expiry-total { display: flex; align-items: baseline; gap: 8px; padding-bottom: 16px; }
+.expiry-total strong { font: 500 28px/1.3 Inter, sans-serif; color: var(--warning); }
+.expiry-total span { color: var(--muted); font-size: 10px; }
+.expiry-line { display: flex; justify-content: space-between; align-items: start; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 11px; }
+.expiry-line > div:first-child { display: flex; gap: 14px; min-width: 0; }
+.expiry-line > div:first-child strong { color: var(--secondary); flex-shrink: 0; }
+.expiry-line > div:first-child span { color: var(--muted); overflow-wrap: anywhere; }
+.expiry-line > div:last-child { flex-shrink: 0; text-align: right; }
+.expiry-line small { display: block; color: var(--warning); font-size: 10px; }
+.benefit-packages { margin-top: 24px; scroll-margin-top: 24px; }
+.benefit-packages .arco-checkbox { font-size: 11px; }
+.benefit-packages .benefit-notice { margin: 15px 20px; }
+.reward-account-select { padding: 0; margin: 0 0 18px; }
+.reward-feature { display: flex; justify-content: space-between; align-items: center; gap: 30px; min-height: 240px; padding: 28px; color: #fff; background: linear-gradient(135deg, #2b45c9, #1e3199); border-radius: 14px; margin-bottom: 24px; }
+.reward-feature .eyebrow { color: #d2dbff; font-size: 10px; }
+.reward-feature h2 { font-size: 27px; line-height: 1.4; margin: 10px 0; color: #fff; }
+.reward-feature p { color: #e2e6ff; font-size: 12px; overflow-wrap: anywhere; }
+.reward-feature-copy { min-width: 0; }
+.reward-feature-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 15px; color: #e2e6ff; font-size: 10px; }
+.reward-feature-meta .arco-btn-text { color: #fff; height: 26px; font-size: 10px; }
+.reward-feature-value { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; gap: 5px; min-width: 130px; }
+.reward-feature-value > strong { font: 600 42px/1.2 Inter, sans-serif; }
+.reward-feature-value > span { font-size: 10px; color: #e2e6ff; }
+.reward-feature-value .arco-btn { margin-top: 10px; background: #fff; color: #2237b0; }
+.reward-feature-value .arco-btn-disabled { background: #ffffff26; color: #ffffff99; border-color: #ffffff26; }
+.reward-feature-icon { font-size: 80px; color: #dce2ff; flex-shrink: 0; }
+.reward-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 24px 0 18px; font-size: 10px; }
+.reward-section-heading > div { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.reward-section-heading > div > span { color: var(--muted); }
+.reward-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.reward-item { position: relative; min-width: 0; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-height: 235px; }
+.reward-item > .arco-tag { position: absolute; top: 20px; right: 18px; }
+.reward-item h3 { font-size: 13px; margin: 14px 0 4px; font-weight: 600; }
+.reward-item > p { color: var(--muted); font-size: 10px; min-height: 16px; }
+.reward-amount { font: 500 25px/1.5 Inter, sans-serif; color: var(--accent); margin-top: 10px; }
+.reward-amount small { font: 10px 'Noto Sans SC', 'Microsoft YaHei', sans-serif; color: var(--muted); }
+.reward-item-meta { color: var(--warning); font-size: 10px; margin: 5px 0 14px; }
+.reward-item > .arco-btn { margin-top: auto; background: var(--accent-soft); color: var(--accent); border: 0; height: 30px; font-size: 11px; }
+.reward-item > .arco-btn-disabled { background: var(--surface-secondary); color: var(--muted); }
+.reward-bottom .benefit-primary { min-height: 220px; }
+.voucher-line { display: flex; align-items: start; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.voucher-line > div { flex: 1; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.voucher-line code { display: block; margin: 5px 0; color: var(--accent); font-size: 12px; overflow-wrap: anywhere; }
+.voucher-line .arco-btn { width: 32px; padding: 0; flex-shrink: 0; }
+.reward-rules { min-height: 220px; scroll-margin-top: 24px; }
+.reward-rules > p { display: flex; gap: 8px; align-items: start; color: var(--muted); font-size: 11px; margin-top: 14px; }
+.reward-rules > p .arco-icon { margin-top: 4px; flex-shrink: 0; }
+.reward-rules > a { display: inline-block; font-size: 10px; color: var(--accent); margin-top: 18px; }
+@media (max-width: 1150px) {
+  .benefit-layout { grid-template-columns: minmax(0, 1fr); }
+  .benefit-aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .benefit-heading { align-items: start; }
+  .benefit-heading .heading-actions { max-width: 300px; }
+  .benefit-stats .metric { padding-inline: 18px; }
+}
+@media (max-width: 760px) {
+  .benefit-heading { align-items: start; flex-wrap: wrap; gap: 16px; }
+  .benefit-heading .heading-actions { display: flex !important; margin-left: 0; max-width: 100%; justify-content: flex-start; gap: 7px; }
+  .benefit-heading .heading-actions .arco-btn { font-size: 11px; padding-inline: 10px; }
+  .benefit-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 20px; }
+  .benefit-stats .metric strong { font-size: 24px; }
+  .benefit-stats .metric:nth-child(3)::before { display: none; }
+  .benefit-panel-heading { padding-inline: 16px; }
+  .benefit-panel-title { gap: 6px; }
+  .benefit-panel-heading .arco-radio-group { max-width: 100%; }
+  .benefit-panel-heading .arco-radio-button { padding-inline: 7px; }
+  .benefit-toolbar { padding-inline: 16px; }
+  .benefit-toolbar > .arco-select { width: 100%; }
+  .benefit-toolbar > .arco-input-wrapper { min-width: 100px; }
+  .benefit-toolbar-hint { margin-left: 0; }
+  .benefit-primary { min-height: 380px; }
+  .benefit-aside { grid-template-columns: minmax(0, 1fr); }
+  .benefit-side-section { padding: 18px; }
+  .benefit-panel-footer { padding-inline: 16px; }
+  .reward-feature { flex-direction: column; align-items: stretch; gap: 24px; padding: 24px; }
+  .reward-feature h2 { font-size: 24px; }
+  .reward-feature-value { align-items: start; }
+  .reward-feature-value > strong { font-size: 36px; }
+  .reward-feature-icon { display: none; }
+  .reward-grid { grid-template-columns: minmax(0, 1fr); }
+  .reward-item { min-height: 230px; }
+  .reward-bottom .benefit-primary { min-height: 200px; }
+  .mobile-navigation { overflow-x: auto; grid-template-columns: repeat(6, minmax(0, 1fr)); padding-inline: 4px; }
+  .mobile-navigation .arco-icon { font-size: 18px; padding-inline: 8px; }
+}

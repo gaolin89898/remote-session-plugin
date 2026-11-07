@@ -1,0 +1,22 @@
+.desktop-status { margin: 20px 0; padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.desktop-status-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.desktop-status-head strong { font-size: 14px; }
+.desktop-status p { margin: 7px 0 0; font-size: 12px; line-height: 1.7; color: var(--muted); overflow-wrap: anywhere; }
+.desktop-uid { margin-left: 8px; color: var(--muted); }
+.desktop-status .desktop-progress { color: var(--accent); }
+.desktop-status .danger-text { color: var(--danger); }
+.desktop-current { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-size: 12px; white-space: nowrap; }
+.qoder-switch-action { width: 80px; }
+.mobile-desktop-action { display: flex; justify-content: flex-end; margin: 8px 0; }
+.platform-mark.qoder-mark { background: #b3482e; }
+.qoder-reward-note { margin: 18px 0; padding: 12px 0; color: var(--secondary); font-size: 12px; border-bottom: 1px solid var(--line); }
+.qoder-rules { display: inline-block; margin-top: 12px; font-size: 12px; color: var(--accent); }
+@media (max-width: 600px) {
+  .platform-switcher { flex-wrap: nowrap; }
+  .platform-switcher > button { min-width: 0; gap: 4px; padding: 7px 5px; }
+  .platform-switcher .platform-mark { display: none; }
+  .add-platforms button { min-width: 0; padding-inline: 6px; }
+  .desktop-status { padding: 14px; }
+  .desktop-status-head { flex-wrap: wrap; gap: 10px; }
+  .desktop-uid { display: block; margin-left: 0; }
+}

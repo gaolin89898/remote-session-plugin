@@ -1,0 +1,20 @@
+{
+  "name": "workbuddy-accounts-panel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "build:standalone": "vite build --mode standalone",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@arco-design/web-vue": "^2.58.0",
+    "vue": "^3.5.22"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.1",
+    "vite": "^7.1.12"
+  }
+}

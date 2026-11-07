@@ -1,0 +1,42 @@
+{
+  "name": "dsh-workbuddy-accounts",
+  "version": "0.1.10",
+  "private": true,
+  "type": "module",
+  "description": "AI 工具箱：WorkBuddy、Trae、Qoder 的账号、签到、任务与积分管理。",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "public",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "npm --prefix ../web run build:standalone && node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "preview": "node scripts/preview.mjs",
+    "prepack": "node scripts/check-package.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "engines": {
+      "dsh": ">=0.2.1-rc.5"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}
