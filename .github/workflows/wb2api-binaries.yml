@@ -1,23 +1,23 @@
-name: go-binaries
+name: wb2api-binaries
 
-# 可运行二进制构建/发布：
-#   - PR / push main → 测试 + 五平台编译验证（产物仅存 artifact，不发布）
-#   - push v* tag    → 同上 + 打包上传到 GitHub Release（zip/tar.gz + checksums）
-# 固化的发布纪律（曾两次人祸，见仓库 HANDOFF）：-s -w 剥离、二进制版本串 == 源码
-# appVersion、tag 版本 == 源码版本（-ci 后缀的测试 tag 豁免，用于演练发布线）。
+# Go 账号服务（toolbox/）二进制构建/发布：
+#   - PR / push main -> 测试 + 五平台编译验证（产物仅存 artifact，不发布）
+#   - push wb2api-v* tag -> 同上 + 打包上传到 GitHub Release
+# 固化的发布纪律：-s -w 剥离、二进制版本串 == 源码 appVersion、tag 版本 == 源码版本
+# （发布演练用 wb2api-v*-ci 后缀的 tag 豁免一致性断言）。
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["wb2api-v*"]
   pull_request:
     paths:
-      - "go.mod"
-      - "go.sum"
-      - "cmd/**"
-      - "internal/**"
-      - "web/**"
-      - "config.example.json"
-      - ".github/workflows/go-binaries.yml"
+      - "toolbox/go.mod"
+      - "toolbox/go.sum"
+      - "toolbox/cmd/**"
+      - "toolbox/internal/**"
+      - "toolbox/web/**"
+      - "toolbox/config.example.json"
+      - ".github/workflows/wb2api-binaries.yml"
   workflow_dispatch:
 
 concurrency:
@@ -30,27 +30,33 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: toolbox
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: toolbox/go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: toolbox/web/package-lock.json
       - name: Build Vue account panel
-        working-directory: web
+        working-directory: toolbox/web
         run: npm ci && npm run build
       - name: Check embedded frontend is current
         run: git diff --exit-code -- internal/panel/accounts_dist
-      # ubuntu runner 自带 node → panel 包的 JS 运行时冒烟测试（TestAppJSTopLevelSmoke）会真实执行
+      # ubuntu runner 自带 node，面板包的 JS 运行时冒烟测试会真实执行。
       - run: go test ./...
 
   build:
     needs: test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: toolbox
     strategy:
       fail-fast: false
       matrix:
@@ -64,21 +70,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: toolbox/go.mod
 
-      - name: 取源码版本号
+      - name: Read source version
         id: ver
         run: echo "v=$(grep -oP 'appVersion = "\K[^"]+' cmd/server/main.go)" >> "$GITHUB_OUTPUT"
 
-      - name: 构建（剥离符号，对齐本地发布口径）
+      - name: Build (strip symbols, matching local release flags)
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: go build -ldflags "-s -w" -o "wb2api${{ matrix.goos == 'windows' && '.exe' || '' }}" ./cmd/server
 
-      # 版本串断言：二进制必须含源码 appVersion（防交叉编译矩阵里编错树/漏 ldflags）
-      - name: 断言二进制版本串
+      # 版本串断言：二进制必须含源码 appVersion（防交叉编译矩阵里编错树/漏 ldflags）。
+      - name: Assert binary version string
         run: |
           BIN="wb2api${{ matrix.goos == 'windows' && '.exe' || '' }}"
           if ! grep -qa "${{ steps.ver.outputs.v }}" "$BIN"; then
@@ -87,10 +93,10 @@ jobs:
           fi
           echo "version assert OK: ${{ steps.ver.outputs.v }}"
 
-      - name: 打包（windows=zip 三件套，其余=tar.gz）
+      - name: Package (windows=zip triple, others=tar.gz)
         run: |
           V="${{ steps.ver.outputs.v }}"
-          V="${V%-panel}"   # 文件名不带 -panel 后缀（wb2api-panel-v1.2.3-... 既有惯例）
+          V="${V%-panel}"   # 文件名不带 -panel 后缀
           case "${{ matrix.goos }}" in
             windows)
               NAME="wb2api-panel-v${V}-windows-amd64.zip"
@@ -106,13 +112,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.name }}
-          path: ${{ env.name }}
+          path: toolbox/${{ env.name }}
           retention-days: 7
 
-  # 仅 tag 触发：校验 tag == 源码版本（-ci 演练 tag 豁免）→ 汇总资产 → 建 Release
+  # 由 wb2api-v* tag 触发：校验 tag == 源码版本（-ci 演练 tag 豁免）-> 汇总资产 -> 建 Release
   publish:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/wb2api-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -120,11 +126,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # 取历史 tag 算 compare 链接
-      - name: tag 与源码版本一致性断言
+      - name: Assert tag matches source version
+        working-directory: toolbox
         run: |
           SRC=$(grep -oP 'appVersion = "\K[^"]+' cmd/server/main.go)
-          SRC="${SRC%-panel}"   # appVersion 带 -panel 后缀，比对前剥掉
-          TAG="${GITHUB_REF_NAME#v}"
+          SRC="${SRC%-panel}"
+          TAG="${GITHUB_REF_NAME#wb2api-v}"
           if [[ "$GITHUB_REF_NAME" != *-ci ]]; then
             if [[ "$TAG" != "$SRC" ]]; then
               echo "::error::tag $GITHUB_REF_NAME 与源码 appVersion=$SRC 不一致（先提交版本号再打 tag）"
@@ -139,14 +146,14 @@ jobs:
           merge-multiple: true
       - name: checksums
         run: cd dist && sha256sum *.zip *.tar.gz > checksums.txt && ls -la
-      - name: 上一版 tag（compare 链接用）
+      - name: Previous tag (compare link)
         id: prev
         run: |
           PREV=$(git describe --tags --abbrev=0 "${GITHUB_REF_NAME}^" 2>/dev/null || true)
           echo "prev=${PREV}" >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
-          name: ${{ github.ref_name }}-panel
+          name: ${{ github.ref_name }}
           prerelease: ${{ contains(github.ref_name, '-') }}
           body: |
             CI 自动构建发布（五平台二进制 + checksums）。

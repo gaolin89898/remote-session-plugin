@@ -1,0 +1,50 @@
+name: plugin
+
+# DSH 插件本体：构建客户端 bundle 并跑 Node 测试。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "tools/**"
+      - "test/**"
+      - "gateway/**"
+      - "relay/**"
+      - "public/**"
+      - "package.json"
+      - "cordis.patch.yml"
+      - ".github/workflows/plugin.yml"
+  pull_request:
+    paths:
+      - "lib/**"
+      - "tools/**"
+      - "test/**"
+      - "gateway/**"
+      - "relay/**"
+      - "public/**"
+      - "package.json"
+      - "cordis.patch.yml"
+      - ".github/workflows/plugin.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Check committed client bundle is current
+        run: git diff --exit-code -- lib/client.js
+      - run: npm test

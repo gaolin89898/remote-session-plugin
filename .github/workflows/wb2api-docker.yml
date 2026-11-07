@@ -1,37 +1,35 @@
-name: docker-ghcr
+name: wb2api-docker
 
-# 多架构镜像（amd64/arm64）自动构建并发布到 ghcr.io：
-#   - push 到 main / 打 v* tag / 手动触发 → 构建并推送
-#   - PR 触碰构建相关文件 → 仅构建验证，不推送
-# tag 说明：main 推 latest + main + sha-xxxxxx；v1.2.3 推 1.2.3 / 1.2 / 1
+# Go 账号服务多架构镜像（amd64/arm64）自动构建并发布到 ghcr.io：
+#   - push 到 main / 打 wb2api-v* tag / 手动触发 -> 构建并推送
+#   - PR 触达构建相关文件 -> 仅构建验证，不推送
+# tag 说明：main 接 latest + main + sha-xxxxxx；wb2api-v1.13.0 接 1.13.0 / 1.13
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["wb2api-v*"]
   pull_request:
     paths:
-      - "Dockerfile"
-      - ".dockerignore"
-      - "go.mod"
-      - "go.sum"
-      - "cmd/**"
-      - "internal/**"
-      - "scripts/**"
-      - "*.sh"
-      - "config.example.json"
-      - ".github/workflows/docker-ghcr.yml"
+      - "toolbox/Dockerfile"
+      - "toolbox/.dockerignore"
+      - "toolbox/go.mod"
+      - "toolbox/go.sum"
+      - "toolbox/cmd/**"
+      - "toolbox/internal/**"
+      - "toolbox/scripts/**"
+      - "toolbox/*.sh"
+      - "toolbox/config.example.json"
+      - ".github/workflows/wb2api-docker.yml"
   workflow_dispatch:
 
-# 并发组：PR 取消过时构建；main/tag 按引用串行——发版时 main+tag 同推不再双跑
-# 同一份代码的多架构构建（QEMU arm64 一次不便宜）。
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ghcr.io
-  # github.repository 自动小写化，得到 ghcr.io/linguo2625469/workbuddy2api-panel
-  IMAGE_NAME: ${{ github.repository }}
+  # 合并后的仓库同时发布 DSH 插件，镜像名加 -wb2api 后缀区分服务。
+  IMAGE_NAME: ${{ github.repository }}-wb2api
 
 jobs:
   build-and-publish:
@@ -43,7 +41,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up QEMU（arm64 交叉模拟）
+      - name: Set up QEMU (arm64 emulation)
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Buildx
@@ -65,14 +63,15 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=match,pattern=wb2api-v(\d+\.\d+\.\d+),group=1
+            type=match,pattern=wb2api-v(\d+\.\d+),group=1
             type=sha,format=short
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: toolbox
+          file: toolbox/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
