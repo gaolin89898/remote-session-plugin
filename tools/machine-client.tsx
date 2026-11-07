@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { AgentWorkbench } from './workbench-client';
+import { WorkbenchModal } from './workbench-client';
 import { Button, Checkbox, Menu, MenuItemButton, Modal, IconDownloadOutlineRegular, IconLinkOutlineRegular, IconRefreshOutlineRegular, StateDot } from '@deepseek-ai/dsh-client-ui-primitives';
 
 export const name = 'dsh-remote-session';
@@ -105,6 +105,8 @@ function MachineMenu({ size = 16 }: { size?: number }) {
   const [busy, setBusy] = React.useState(false);
   const [restartTarget, setRestartTarget] = React.useState<any>(null);
   const [restartingId, setRestartingId] = React.useState('');
+  const [hosts, setHosts] = React.useState<any[] | null>(null);
+  const [workbench, setWorkbench] = React.useState<{ hostId?: string } | null>(null);
   const icon = React.useRef<HTMLSpanElement>(null);
   const [trigger, setTrigger] = React.useState<HTMLButtonElement | null>(null);
   const bridge = (window as any).__DSH_REMOTE_SESSION__;
@@ -144,6 +146,12 @@ function MachineMenu({ size = 16 }: { size?: number }) {
   }, []);
   React.useLayoutEffect(() => {
     icon.current?.closest('button')?.setAttribute('aria-expanded', String(open));
+  }, [open]);
+  React.useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    post('workbench/hosts').then(result => { if (alive) setHosts(result.hosts); }, () => { if (alive) setHosts([]); });
+    return () => { alive = false; };
   }, [open]);
 
   const choose = async (id: string) => {
@@ -200,6 +208,8 @@ function MachineMenu({ size = 16 }: { size?: number }) {
     .dsh-remote-machine-current { display: flex; align-items: center; gap: 5px; margin-left: auto; min-width: 0; max-width: 50%; flex: 0 1 auto; color: var(--dsw-alias-label-secondary); font-size: 11px; line-height: 18px; }
     .dsh-remote-machine-current-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dsh-remote-machine-current-mode { flex: none; white-space: nowrap; }
+    .dsh-remote-machine-group { margin-top: 2px; }
+    .dsh-remote-machine-mode { color: var(--dsw-alias-label-secondary); font-size: 11px; }
   `}</style>{trigger && size === 16 && !current.local && createPortal(
     <span className="dsh-remote-machine-current" title={current.label} data-remote-machine-current={selected}>
       <span className="dsh-remote-machine-current-name">{current.name}</span>
@@ -235,9 +245,21 @@ function MachineMenu({ size = 16 }: { size?: number }) {
       setError('');
       void refreshMachineState('refresh');
     }}>刷新机器</MenuItemButton>
+    {!!hosts?.length && <div className="dsh-remote-machine-note dsh-remote-machine-group">直连电脑</div>}
+    {(hosts || []).map(host => <MenuItemButton key={host.id} icon={<StateDot state={host.connected ? 'done' : 'idle'} />} onSelect={() => {
+      setOpen(false);
+      setWorkbench({ hostId: host.id });
+    }}>
+      <span className="dsh-remote-machine-label">{host.name}<span className="dsh-remote-machine-mode">{host.mode === 'ssh' ? ' · SSH' : ' · 网关'}{host.connected ? ' 已连接' : ''}</span></span>
+    </MenuItemButton>)}
+    <MenuItemButton icon={<IconLinkOutlineRegular />} onSelect={() => {
+      setOpen(false);
+      setWorkbench({});
+    }}>Agent 工作台…</MenuItemButton>
     {busy && <div className="dsh-remote-machine-note">正在连接…</div>}
     {(error || stateError) && <div role="alert" className="dsh-remote-machine-note">{error || stateError}</div>}
   </Menu>
+  {workbench && <WorkbenchModal close={() => setWorkbench(null)} initialHostId={workbench.hostId} />}
   <Modal open={!!restartTarget} title={'重启 ' + (restartTarget?.name || '') + ' 上的 DSH？'} closeLabel="关闭" onClose={() => setRestartTarget(null)}
     description={[platformLabel(restartTarget?.platform), runtimeLabel(restartTarget?.runtime)].filter(Boolean).join(' · ') + '。当前正在运行的任务将会中断。'}
     footer={<><Button variant="outline" onClick={() => setRestartTarget(null)}>取消</Button>
@@ -731,9 +753,6 @@ function ConnectionSettings() {
 }
 
 export function apply(ctx: any) {
-  ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-    name: 'sidebar.panellist', id: 'agent-workbench', order: 51, label: () => 'Agent 工作台',
-  }, AgentWorkbench));
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
     name: 'sidebar.footer.action', id: 'remote-session-environment', order: 100,
   }, EnvironmentStatus));

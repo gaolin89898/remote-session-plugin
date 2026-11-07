@@ -14,13 +14,17 @@ const home = await mkdtemp(path.join(os.tmpdir(), 'workbench-browser-'));
 const gateway = await createGatewayServer({ id: 'fixture-node', name: 'Fixture', workspaces: [{ id: 'project', name: 'Project', path: home }], agents: { codex: { kind: 'codex', command: process.execPath, args: [path.join(root, 'test/fixtures/agent-process.mjs'), 'codex'], env: { FIXTURE_WORKSPACE: home } } } }, 'browser-fixture-token-'.repeat(3));
 const workbench = new Workbench(home);
 const bundled = await build({ stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {AgentWorkbench} from './tools/workbench-client';createRoot(document.getElementById('root')).render(<AgentWorkbench/>);`, resolveDir: root, loader: 'tsx' }, bundle: true, write: false, format: 'iife', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"development"' } });
+const autoBundled = await build({ stdin: { contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {WorkbenchModal} from './tools/workbench-client';const host=new URLSearchParams(location.search).get('host')||undefined;createRoot(document.getElementById('root')).render(<WorkbenchModal close={() => {}} initialHostId={host} />);`, resolveDir: root, loader: 'tsx' }, bundle: true, write: false, format: 'iife', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"development"' } });
 const server = http.createServer(async (req, res) => {
-  if (req.url === '/') { res.setHeader('content-type', 'text/html'); res.end('<meta charset="utf-8"><div id="root"></div><script src="/client.js"></script>'); return; }
-  if (req.url === '/client.js') { res.setHeader('content-type', 'text/javascript'); res.end(bundled.outputFiles[0].text); return; }
+  const url = new URL(req.url, 'http://127.0.0.1');
+  if (url.pathname === '/') { res.setHeader('content-type', 'text/html'); res.end('<meta charset="utf-8"><div id="root"></div><script src="/client.js"></script>'); return; }
+  if (url.pathname === '/client.js') { res.setHeader('content-type', 'text/javascript'); res.end(bundled.outputFiles[0].text); return; }
+  if (url.pathname === '/auto.js') { res.setHeader('content-type', 'text/html'); res.end('<meta charset="utf-8"><div id="root"></div><script src="/auto-bundle.js"></script>'); return; }
+  if (url.pathname === '/auto-bundle.js') { res.setHeader('content-type', 'text/javascript'); res.end(autoBundled.outputFiles[0].text); return; }
   const abort = new AbortController(); res.once('close', () => abort.abort());
   try {
     let raw = ''; for await (const chunk of req) raw += chunk;
-    const result = await workbench.route(req.url.split('/').at(-1), JSON.parse(raw), abort.signal);
+    const result = await workbench.route(url.pathname.split('/').at(-1), JSON.parse(raw), abort.signal);
     res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ ok: true, ...result }));
   } catch (error) { if (!res.destroyed) { res.writeHead(error.status || 500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: error.message })); } }
 });
@@ -55,7 +59,12 @@ try {
   assert.deepEqual(failures, []);
   await page.getByRole('button', { name: '断开', exact: true }).click();
   await page.getByRole('button', { name: '连接', exact: true }).waitFor();
-  console.log('PASS desktop workbench: saved host → gateway → session → stream → approval → stop → disconnect');
+  const saved = (await workbench.hosts())[0];
+  await page.goto('http://127.0.0.1:' + server.address().port + '/auto.js?host=' + saved.id);
+  await page.getByLabel('Agent', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('机器', { exact: true }).inputValue(), saved.id);
+  assert.deepEqual(failures, []);
+  console.log('PASS desktop workbench: saved host → gateway → session → stream → approval → stop → disconnect; menu host opens connected workbench');
 } finally {
   await browser?.close(); workbench.dispose(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await gateway.close(); await rm(home, { recursive: true, force: true });
 }

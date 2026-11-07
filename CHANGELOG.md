@@ -3,7 +3,7 @@
 ## 未发布
 
 - 新增独立 Agent Gateway，提供 DSH Web、Codex App Server、OpenCode ACP 适配，保留各后端原生会话存储。
-- 桌面新增 Agent 工作台，支持保存 HTTP(S)/SSH 机器、选择 Agent/工作区/会话、消息流、停止任务和一次性审批。
+- 桌面新增 Agent 工作台，并入侧栏 **远程会话** 菜单（不再单独占用入口），支持保存 HTTP(S)/SSH 机器、选择 Agent/工作区/会话、消息流、停止任务和一次性审批。
 - 配套 dsh-Go fork 新增手机工作台和纯 Dart 网关客户端，复用已有 SSH 主机、安全存储、指纹校验与回环转发。
 - 新接口独立于现有 relay 和完整界面切换；执行机器部署网关，DSH 执行端无需安装本插件。
 - 接入要求、协议、配置示例及当前边界见 `docs/agent-workbench.md`。本次尚未发布版本或 APK。

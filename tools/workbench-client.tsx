@@ -11,9 +11,12 @@ async function request(action: string, body: any = {}, signal?: AbortSignal) {
 }
 export function AgentWorkbench() {
   const [open, setOpen] = React.useState(false);
-  return <><button onClick={() => setOpen(true)}>Agent 工作台</button>{open && createPortal(<Workbench close={() => setOpen(false)} />, document.body)}</>;
+  return <><button onClick={() => setOpen(true)}>Agent 工作台</button>{open && <WorkbenchModal close={() => setOpen(false)} />}</>;
 }
-function Workbench({ close }: { close: () => void }) {
+export function WorkbenchModal({ close, initialHostId }: { close: () => void; initialHostId?: string }) {
+  return createPortal(<Workbench close={close} initialHostId={initialHostId} />, document.body);
+}
+function Workbench({ close, initialHostId }: { close: () => void; initialHostId?: string }) {
   const [hosts, setHosts] = React.useState<any[]>([]), [hostId, setHostId] = React.useState('');
   const [agents, setAgents] = React.useState<any[]>([]), [agentId, setAgentId] = React.useState('');
   const [workspaces, setWorkspaces] = React.useState<any[]>([]), [workspaceId, setWorkspaceId] = React.useState('');
@@ -23,9 +26,23 @@ function Workbench({ close }: { close: () => void }) {
   const [editing, setEditing] = React.useState(false), [form, setForm] = React.useState<any>({ name: '', mode: 'direct', url: 'http://127.0.0.1:3490', target: '', sshPort: 22, gatewayPort: 3490, token: '' });
   const epoch = React.useRef(0);
   const run = async (task: () => Promise<void>) => { setBusy(true); setError(''); try { await task(); } catch (e: any) { setError(e.message); } finally { setBusy(false); } };
-  const call = async (method: string, params: any = {}, signal?: AbortSignal) => (await request('call', { id: hostId, method, params }, signal)).result;
+  const callTo = async (id: string, method: string, params: any = {}, signal?: AbortSignal) => (await request('call', { id, method, params }, signal)).result;
+  const call = (method: string, params: any = {}, signal?: AbortSignal) => callTo(hostId, method, params, signal);
   const reset = () => { epoch.current++; setConnected(false); setAgents([]); setWorkspaces([]); setAgentId(''); setWorkspaceId(''); setSessions([]); setSessionId(''); setSnapshot(null); };
-  React.useEffect(() => { void run(async () => setHosts((await request('hosts')).hosts)); }, []);
+  const connectTo = async (id: string) => {
+    reset(); const revision = epoch.current; setHostId(id);
+    await request('connect', { id });
+    const [a, w] = await Promise.all([callTo(id, 'agents.list'), callTo(id, 'workspaces.list')]);
+    if (revision !== epoch.current) return;
+    setAgents(a.agents); setWorkspaces(w.workspaces); setAgentId(a.agents[0]?.id || ''); setWorkspaceId(w.workspaces[0]?.id || ''); setConnected(true);
+  };
+  React.useEffect(() => {
+    void run(async () => {
+      const list = (await request('hosts')).hosts;
+      setHosts(list);
+      if (initialHostId && list.some((host: any) => host.id === initialHostId)) await connectTo(initialHostId);
+    });
+  }, []);
   React.useEffect(() => {
     if (!connected || !agentId || !workspaceId) return;
     const abort = new AbortController(); setSessions([]); setSessionId(''); setSnapshot(null);
@@ -47,20 +64,13 @@ function Workbench({ close }: { close: () => void }) {
     })();
     return () => abort.abort();
   }, [sessionId, connected, hostId]);
-  const connect = () => run(async () => {
-    reset(); const revision = epoch.current;
-    await request('connect', { id: hostId });
-    const [a, w] = await Promise.all([call('agents.list'), call('workspaces.list')]);
-    if (revision !== epoch.current) return;
-    setAgents(a.agents); setWorkspaces(w.workspaces); setAgentId(a.agents[0]?.id || ''); setWorkspaceId(w.workspaces[0]?.id || ''); setConnected(true);
-  });
   const mutate = (method: string, params: any = {}) => run(async () => { const result = await call(method, { sessionId, ...params }); if (result.id === sessionId) setSnapshot((old: any) => !old || old.epoch !== result.epoch || result.cursor >= old.cursor ? result : old); });
   const field = (key: string, label: string, type = 'text') => <label>{label}<input type={type} value={form[key] ?? ''} onChange={e => setForm({ ...form, [key]: e.target.value })} /></label>;
   return <div className="agent-backdrop" onClick={e => { if (e.target === e.currentTarget) close(); }}><section className="agent-workbench" role="dialog" aria-modal="true" aria-label="Agent 工作台">
     <style>{`.agent-backdrop{position:fixed;inset:0;background:#0008;z-index:10000;display:grid;place-items:center}.agent-workbench{width:min(960px,96vw);height:90vh;background:var(--dsw-alias-surface-primary,#181a20);color:var(--dsw-alias-label-primary,#eee);border:1px solid #6665;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;box-sizing:border-box}.agent-workbench header,.agent-controls,.agent-compose{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.agent-workbench h2{flex:1;margin:0;font-size:18px}.agent-workbench button,.agent-workbench select,.agent-workbench input,.agent-workbench textarea{font:inherit;color:inherit;background:transparent;border:1px solid #8886;border-radius:7px;padding:8px}.agent-workbench button:disabled{opacity:.45}.agent-workbench option{color:#111}.agent-form{display:flex;flex-wrap:wrap;gap:10px}.agent-form label{display:flex;flex-direction:column;gap:5px}.agent-messages{flex:1;overflow:auto;min-height:80px}.agent-message{padding:12px;margin:8px 0;border-radius:10px;background:#8881}.agent-message[data-role=user]{margin-left:12%;background:#4685d522}.agent-message[data-role=reasoning],.agent-message[data-role=tool]{font-size:12px;opacity:.8}.agent-message pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:6px 0}.agent-compose textarea{flex:1;resize:vertical;min-height:56px}.agent-error{color:#ff9494}.agent-approval{border:1px solid #dca653;border-radius:8px;padding:10px;display:flex;gap:10px;align-items:center}`}</style>
     <header><h2>Agent 工作台</h2><button onClick={close} aria-label="关闭">×</button></header>
     <div className="agent-controls"><select aria-label="机器" disabled={busy} value={hostId} onChange={e => { reset(); setHostId(e.target.value); }}><option value="">选择机器</option>{hosts.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
-      <button disabled={busy || !hostId} onClick={connect}>{connected ? '重新连接' : '连接'}</button>
+      <button disabled={busy || !hostId} onClick={() => { void run(() => connectTo(hostId)); }}>{connected ? '重新连接' : '连接'}</button>
       <button disabled={busy} onClick={() => { const host = hosts.find(h => h.id === hostId); setForm(host ? { ...host, token: '' } : { name: '', mode: 'direct', url: 'http://127.0.0.1:3490', token: '' }); setEditing(!editing); }}>{hostId ? '编辑机器' : '添加机器'}</button>
       {connected && <button onClick={() => void run(async () => { reset(); await request('disconnect', { id: hostId }); })}>断开</button>}
     </div>

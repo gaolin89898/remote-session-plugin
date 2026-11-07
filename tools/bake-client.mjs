@@ -16,10 +16,12 @@ const targets = [
 ];
 for (const target of targets) {
   for (const relative of manifest.files) {
+    const source = path.join(root, relative);
     const destination = path.join(target, relative);
     if (relative === 'cordis.patch.yml' && fs.existsSync(destination)) continue;
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.copyFileSync(path.join(root, relative), destination);
+    if (fs.statSync(source).isDirectory()) fs.cpSync(source, destination, { recursive: true });
+    else fs.copyFileSync(source, destination);
   }
   console.log('synced native plugin ->', target);
 }
