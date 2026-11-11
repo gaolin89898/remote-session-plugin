@@ -461,6 +461,8 @@ Desktop，探测超时关闭 stdout 后可能触发 `write EPIPE`。探测脚本
 
 ## Repository Boundary
 
+本仓库由原作者 [liguobao/ds-harness-remote](https://github.com/liguobao/ds-harness-remote) fork 而来，改名 `remote-session-plugin` 后独立维护（见文首 2026-11-11 改名记录）。git remote `upstream` 指向原仓库；历史遗留的 `dsh-remote`、`@dsh-remote/plugin` 命名属于上游的发布身份，作为兼容边界保留。上游 issue 编号（如 #244、#259）引用原仓库的讨论。
+
 当前仓库实现：
 
 - DeepSeek Harness Plugin（Remote Host + 本地 Remote 工作区入口；dsh-TUI 集成自 0.6.3 起移除，计划下一版本单独提供；无用户可见的 Client 模式）

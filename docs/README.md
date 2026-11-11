@@ -2,6 +2,8 @@
 
 ## 当前仓库边界
 
+本仓库由原作者 [liguobao/ds-harness-remote](https://github.com/liguobao/ds-harness-remote) fork 而来，改名 `remote-session-plugin` 后独立维护；上游的完整说明、Issue 与讨论见[原仓库](https://github.com/liguobao/ds-harness-remote)。
+
 本仓库只实现以下内容：
 
 - DeepSeek Harness Plugin（常驻 Host + 本地 Remote 工作区入口，无用户可见的 Client 模式）

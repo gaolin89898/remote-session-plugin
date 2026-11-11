@@ -23,6 +23,8 @@
 
 Harness 始终运行在工作电脑上，原有的工作区、工具和项目配置保持不变。DS Harness Remote 只是通往这个工作环境的另一个窗口。
 
+> 本项目由原作者 [liguobao/ds-harness-remote](https://github.com/liguobao/ds-harness-remote)（2.6k★）fork 而来，改名 `remote-session-plugin` 后独立维护，感谢原作者与上游贡献者的工作。
+
 已支持 DeepSeek Harness 桌面版，使用最新版本安装即可：
 
 `remote-session-plugin@0.6.4`
@@ -260,10 +262,15 @@ DS Bot 是一个基于 DeepSeek Harness（简称 dsh）的 bot 插件，插件�
 <a href="https://www.star-history.com/?repos=gaolin89898%2Fremote-session-plugin&type=date&legend=top-left">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=gaolin89898/remote-session-plugin&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gaolin89898/remote-session-plugin&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gaolin89898/remote-session-plugin&type=date&theme=light&legend=top-left" />
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=gaolin89898/remote-session-plugin&type=date&legend=top-left" />
  </picture>
 </a>
+
+## 原作者与致谢
+
+本项目基于原作者 [liguobao/ds-harness-remote](https://github.com/liguobao/ds-harness-remote) 的开源成果 fork 而来，在此之上改名 `remote-session-plugin` 并独立维护。感谢原作者 liguobao 与上游所有贡献者的工作；上游仓库的完整说明、Issue 与讨论见[原仓库](https://github.com/liguobao/ds-harness-remote)。
+
 
 ## 贡献者
 
