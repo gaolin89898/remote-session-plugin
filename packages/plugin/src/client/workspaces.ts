@@ -1365,7 +1365,7 @@ export function createRemoteWorkspaceAction(React: ClientReact, portal?: PortalR
             },
           }, glyph(React, LogOut), React.createElement('span', null, t('exitRemoteAccount')))) : null),
       updateNotice === undefined ? null : React.createElement('a', {
-        className: 'dshRemoteAccountUpdate', href: 'https://github.com/gaolin89898/ds-harness-remote/releases',
+        className: 'dshRemoteAccountUpdate', href: 'https://github.com/gaolin89898/remote-session-plugin/releases',
         target: '_blank', rel: 'noreferrer', title: updateNotice,
       }, t('updateAvailableShort', { version: updateInfo?.latestVersion ?? '' })),
       props.openSettings === undefined ? null : React.createElement('button', {
@@ -1469,7 +1469,7 @@ export function createRemoteWorkspaceAction(React: ClientReact, portal?: PortalR
                     glyph(React, ChevronRight), React.createElement('span', { className: 'dshRemoteBreadcrumbHost', title: selectedHost.name }, selectedHost.name)),
                   selectedHost === undefined ? React.createElement('a', {
                     className: 'dshRemoteStarLink',
-                    href: 'https://github.com/gaolin89898/ds-harness-remote',
+                    href: 'https://github.com/gaolin89898/remote-session-plugin',
                     target: '_blank',
                     rel: 'noreferrer',
                   }, t('starProject')) : null),
@@ -1505,7 +1505,7 @@ export function createRemoteWorkspaceAction(React: ClientReact, portal?: PortalR
             needsAuthorization ? React.createElement('section', { className: 'dshRemoteEnable' },
               React.createElement('div', { className: 'dshRemoteLoginHeading' },
                 React.createElement('a', {
-                  href: 'https://github.com/gaolin89898/ds-harness-remote',
+                  href: 'https://github.com/gaolin89898/remote-session-plugin',
                   target: '_blank', rel: 'noopener noreferrer',
                 },
                   React.createElement('strong', { className: 'dshRemoteLoginTitle' }, t('signInClient')),

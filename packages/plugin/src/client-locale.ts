@@ -1,5 +1,5 @@
 // Shared dictionaries and typing for the injected Remote client UI.
-export const localeNamespace = 'ds-harness-remote'
+export const localeNamespace = 'remote-session-plugin'
 
 export const en = {
   serverSavedLive: 'Server address saved and applied.',

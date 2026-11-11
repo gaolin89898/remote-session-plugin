@@ -10,12 +10,12 @@ import type {
   AgentAcpTransferReadParams,
   AgentAcpTransferReadResult,
   AcpSessionArchivedData,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import {
   AGENT_ACP_TRANSFER_CHUNK_BYTES,
   MAX_AGENT_ACP_TRANSFER_BYTES,
   MAX_SECURE_MESSAGE_BYTES,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import { z } from 'zod'
 import type { PeerConnectionContext } from '../connection-controller.js'
 import type { SafeLogger } from '../logging.js'

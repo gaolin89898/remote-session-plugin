@@ -1,5 +1,5 @@
 {
-  "name": "ds-harness-remote",
+  "name": "remote-session-plugin",
   "version": "0.6.4",
   "description": "P2P-based, end-to-end encrypted remote access to DeepSeek Harness, CodeX, Claude Code, Pi, and other workspaces from web and mobile clients.",
   "keywords": [
@@ -12,20 +12,20 @@
     "end-to-end-encryption",
     "webrtc"
   ],
-  "homepage": "https://github.com/gaolin89898/ds-harness-remote#readme",
+  "homepage": "https://github.com/gaolin89898/remote-session-plugin#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gaolin89898/ds-harness-remote.git"
+    "url": "git+https://github.com/gaolin89898/remote-session-plugin.git"
   },
   "bugs": {
-    "url": "https://github.com/gaolin89898/ds-harness-remote/issues"
+    "url": "https://github.com/gaolin89898/remote-session-plugin/issues"
   },
   "author": "gl <3289149570@qq.com>",
   "license": "MIT",
   "type": "module",
   "main": "./index.js",
   "bin": {
-    "ds-harness-remote": "./packages/plugin/bin/ds-harness-remote.js"
+    "remote-session-plugin": "./packages/plugin/bin/remote-session-plugin.js"
   },
   "types": "./packages/plugin/public.d.ts",
   "exports": {
@@ -44,7 +44,7 @@
     "index.js",
     "packages/plugin/dist/index.js",
     "packages/plugin/dist/client.github.js",
-    "packages/plugin/bin/ds-harness-remote.js",
+    "packages/plugin/bin/remote-session-plugin.js",
     "packages/plugin/public.d.ts",
     "packages/plugin/LICENSE",
     "dsh-plugin.json",

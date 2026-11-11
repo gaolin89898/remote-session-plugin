@@ -1,5 +1,5 @@
-import type { DisplaySession } from '@dsh-remote/client-core'
-import { deriveCodexCwdWorkspaces, projectCodexThread } from '@dsh-remote/client-core'
+import type { DisplaySession } from '@remote-session-plugin/client-core'
+import { deriveCodexCwdWorkspaces, projectCodexThread } from '@remote-session-plugin/client-core'
 import type { CodexClientLike, JsonRecord } from './virtual-values.js'
 import { array, basename, errorCode, finiteNumber, isoTime, normalizeTime, record, string } from './virtual-values.js'
 

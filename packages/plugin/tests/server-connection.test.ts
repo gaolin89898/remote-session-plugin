@@ -1,7 +1,7 @@
-import { ControlLease } from '@dsh-remote/webrtc'
+import { ControlLease } from '@remote-session-plugin/webrtc'
 import { runScenarios, scenarioName } from '../../../scripts/test-scenarios.mjs'
-import { NoiseIkSession, createNoisePrologue, generateKeyPair, toBase64Url } from '@dsh-remote/crypto'
-import { createControlFrame, createRpcRequest, decodeMessage, encodeMessage, type RemoteMessage } from '@dsh-remote/protocol'
+import { NoiseIkSession, createNoisePrologue, generateKeyPair, toBase64Url } from '@remote-session-plugin/crypto'
+import { createControlFrame, createRpcRequest, decodeMessage, encodeMessage, type RemoteMessage } from '@remote-session-plugin/protocol'
 import { describe, expect, it, vi } from 'vitest'
 import type { ConnectionController } from '../src/connection-controller.js'
 import type { ResolvedConfig } from '../src/config.js'
@@ -15,7 +15,7 @@ import { ServerCredentialStore } from '../src/server-credentials.js'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { RtcPeerConnectionFactory } from '@dsh-remote/webrtc'
+import type { RtcPeerConnectionFactory } from '@remote-session-plugin/webrtc'
 
 class FakeWebSocket {
   readyState = 0

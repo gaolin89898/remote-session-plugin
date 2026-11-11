@@ -1,6 +1,6 @@
-# DS Harness Remote
+# Remote Session Plugin
 
-[官方网站](https://dsh.r2049.cn/) · [Web 客户端](https://dsh.r2049.cn/app) · [iOS 内测](https://github.com/gaolin89898/ds-harness-remote/issues/20) · [DSH Go](https://github.com/ccch1mneyyy/dsh-go)
+[官方网站](https://dsh.r2049.cn/) · [Web 客户端](https://dsh.r2049.cn/app) · [iOS 内测](https://github.com/gaolin89898/remote-session-plugin/issues/20) · [DSH Go](https://github.com/ccch1mneyyy/dsh-go)
 
 通过 **P2P 网络直连**，从另一台电脑、浏览器或手机，继续使用工作电脑上的 DeepSeek Harness。工作区、会话、工具和项目配置仍保留在原来的电脑上。
 
@@ -18,4 +18,4 @@
 2. 在另一台电脑的 Remote、[浏览器](https://dsh.r2049.cn/app)或 [DSH Go](https://github.com/ccch1mneyyy/dsh-go)登录同一账号。
 3. 选择在线主机和工作区，继续对话。工作电脑需保持运行并联网。
 
-[完整说明](https://github.com/gaolin89898/ds-harness-remote/blob/main/README.md) · [自部署指南](https://github.com/gaolin89898/ds-harness-remote/blob/main/apps/server/README.md) · [反馈问题](https://github.com/gaolin89898/ds-harness-remote/issues)
+[完整说明](https://github.com/gaolin89898/remote-session-plugin/blob/main/README.md) · [自部署指南](https://github.com/gaolin89898/remote-session-plugin/blob/main/apps/server/README.md) · [反馈问题](https://github.com/gaolin89898/remote-session-plugin/issues)

@@ -1,5 +1,5 @@
 {
-  "name": "@dsh-remote/webrtc",
+  "name": "@remote-session-plugin/webrtc",
   "version": "0.5.21",
   "type": "module",
   "main": "./dist/index.js",
@@ -16,7 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@dsh-remote/protocol": "workspace:*"
+    "@remote-session-plugin/protocol": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

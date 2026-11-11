@@ -1,5 +1,5 @@
-import { MAX_SECURE_MESSAGE_BYTES } from '@dsh-remote/protocol'
-import type { PluginRouteCallParams, PluginRouteCallResult } from '@dsh-remote/protocol'
+import { MAX_SECURE_MESSAGE_BYTES } from '@remote-session-plugin/protocol'
+import type { PluginRouteCallParams, PluginRouteCallResult } from '@remote-session-plugin/protocol'
 import { z } from 'zod'
 import type { SafeLogger } from './logging.js'
 import { RpcError } from './safe-error.js'

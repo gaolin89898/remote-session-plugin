@@ -6,8 +6,8 @@ import { randomUUID } from 'node:crypto'
 import { WebSocket, WebSocketServer } from 'ws'
 import { LoopbackHost } from '../src/loopback-host.js'
 import { LoopbackPreview } from '../src/loopback-preview.js'
-import type { RemoteClientCore } from '@dsh-remote/client-core'
-import type { LoopbackRead } from '@dsh-remote/protocol'
+import type { RemoteClientCore } from '@remote-session-plugin/client-core'
+import type { LoopbackRead } from '@remote-session-plugin/protocol'
 
 const cleanup: Array<() => void | Promise<void>> = []
 const cleanupScenario1 = async () => {

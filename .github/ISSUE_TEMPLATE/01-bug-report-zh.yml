@@ -1,5 +1,5 @@
 name: 🐛 缺陷反馈 (Bug Report)
-description: 提交 ds-harness-remote 的可复现缺陷或异常行为
+description: 提交 remote-session-plugin 的可复现缺陷或异常行为
 title: "[Bug]: "
 labels:
   - bug
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        感谢帮助改进 ds-harness-remote！请提供简洁、可复现的问题报告。
+        感谢帮助改进 remote-session-plugin！请提供简洁、可复现的问题报告。
 
         **安全与隐私注意（重要）**：
         - 请勿在此公开发布安全漏洞或未经脱敏的敏感信息。
@@ -40,7 +40,7 @@ body:
         - "DSH 桌面插件 (插件市场)"
         - "官方托管 Web 端 (dsh.gaolin.ink/app)"
         - "自建 Docker 服务端 (Self-hosted Server)"
-        - "npm / CLI (ds-harness-remote 包)"
+        - "npm / CLI (remote-session-plugin 包)"
         - "源码编译安装 (Built from source)"
         - "其他"
     validations:

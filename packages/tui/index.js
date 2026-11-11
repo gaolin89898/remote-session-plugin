@@ -1,7 +1,7 @@
-import { applyTuiHost, Config } from 'ds-harness-remote'
+import { applyTuiHost, Config } from 'remote-session-plugin'
 
 export { Config }
-export const name = 'ds-harness-remote-tui'
+export const name = 'remote-session-plugin-tui'
 
 const requiredHostApiPackages = [
   '@deepseek-ai/dsh-client-connection',

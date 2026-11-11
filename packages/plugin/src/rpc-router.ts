@@ -6,7 +6,7 @@ import {
   type RemoteWorkspaceTypeDescription,
   type RpcErrorPayload,
   type RpcRequestPayload,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import { z } from 'zod'
 import type { LoopbackHost } from './loopback-host.js'
 import type { RemoteFileViewerBridge } from './file-viewer-bridge.js'

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { HostConnectionService } from '@deepseek-ai/dsh-client-connection'
-import type { RemoteClientCore } from '@dsh-remote/client-core'
+import type { RemoteClientCore } from '@remote-session-plugin/client-core'
 import { runScenarios } from '../../../scripts/test-scenarios.mjs'
 import { RemoteTypertGateway } from '../src/remote-typert-gateway.js'
 import type { TypertGatewayLike } from '../src/typert-gateway-contract.js'

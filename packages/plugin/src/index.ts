@@ -50,18 +50,20 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-export const name = 'ds-harness-remote'
+export const name = 'remote-session-plugin'
 export { Config }
 
-// The unscoped dsh-remote package belongs to another publisher. A bare name
+// Loader entries from this plugin's previous identities are disabled at
+// startup so an old install cannot double-host the same credentials. The
+// unscoped dsh-remote package belongs to another publisher; a bare name
 // cannot establish ownership of a legacy local alias, so leave it unchanged.
-const legacyLoaderModuleNames = new Set(['@dsh-remote/plugin'])
+const legacyLoaderModuleNames = new Set(['@dsh-remote/plugin', 'ds-harness-remote'])
 // Settings-registry generation (≤0.1.6). The branded `SettingsNamespace` type
 // was removed with the registry in rc.1, so the literals stay plain strings.
-const pluginSettingsNamespace = 'ds-harness-remote'
+const pluginSettingsNamespace = 'remote-session-plugin'
 
 /** Fallback entry id when the Loader cannot locate this plugin's entry. */
-const DEFAULT_ENTRY_ID = 'ds-harness-remote'
+const DEFAULT_ENTRY_ID = 'remote-session-plugin'
 /** Root include entry id prefixing every profile row's Loader path id. */
 const INCLUDE_ENTRY_PREFIX = 'include:'
 
@@ -154,7 +156,7 @@ export function apply(ctx: Context, entry: EntryConfig | ConfigShape | undefined
           control.setStartupFailure(storageError, { storageAvailable: false })
         }
         return control.register(connection, webServer)
-      }, 'ds-harness-remote pending control')
+      }, 'remote-session-plugin pending control')
     }
     const startActiveRuntime = async (activeContext: Context): Promise<void> => {
       await disposePendingControl?.()
@@ -221,7 +223,7 @@ async function activate(
       if (initialStorageError !== undefined) {
         controlRuntime.setStartupFailure(initialStorageError, { storageAvailable: false })
       }
-      ctx.effect(() => controlRuntime.register(connection, webServer), 'ds-harness-remote disabled control')
+      ctx.effect(() => controlRuntime.register(connection, webServer), 'remote-session-plugin disabled control')
     }
     return
   }
@@ -262,7 +264,7 @@ async function activate(
     const peer = fallbackPeer
     fallbackPeer = undefined
     return peer?.dispose?.()
-  }, 'ds-harness-remote fallback owner peer')
+  }, 'remote-session-plugin fallback owner peer')
   const hostGateway = new TypertGatewaySwitch(nativeTypertGateway, () => fallbackPeer)
   const localTypertGateway = hostGateway.local()
   localTypertGateway.createPeer = () => {
@@ -462,7 +464,7 @@ async function activate(
       await clientRuntime?.close()
       await runtime?.close()
     }
-  }, 'ds-harness-remote lifecycle')
+  }, 'remote-session-plugin lifecycle')
   if (config.remoteTools?.enabled) installRemoteDiscoveryTools(ctx, () => closed || !clientActive ? undefined : clientRuntime)
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { runScenarios } from '../../../scripts/test-scenarios.mjs'
 import { AcpVirtualHarness, acpCwdWorkspaceId, discoverAcpVirtualWorkspaces, modelCatalog, type AcpClientLike } from '../src/acp/virtual-harness.js'
-import type { AgentAcpFrameData } from '@dsh-remote/protocol'
+import type { AgentAcpFrameData } from '@remote-session-plugin/protocol'
 
 function fakePi(): AcpClientLike {
   return {

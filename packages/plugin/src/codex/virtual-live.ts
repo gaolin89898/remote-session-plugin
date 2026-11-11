@@ -1,5 +1,5 @@
-import type { CodexPermissionPreset } from '@dsh-remote/protocol'
-import { projectCodexModel } from '@dsh-remote/client-core'
+import type { CodexPermissionPreset } from '@remote-session-plugin/protocol'
+import { projectCodexModel } from '@remote-session-plugin/client-core'
 import type { HarnessSessionGeneration } from '../harness-version.js'
 import { collectImageBlocks, toolOutputImageBlocks } from './codex-image-codec.js'
 import { codexPermissionPresetFromResponse } from './permissions.js'

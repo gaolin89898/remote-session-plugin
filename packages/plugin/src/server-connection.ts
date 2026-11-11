@@ -1,10 +1,10 @@
-import { waitForRelayCapacity, SerialSend, ControlLease } from '@dsh-remote/webrtc'
+import { waitForRelayCapacity, SerialSend, ControlLease } from '@remote-session-plugin/webrtc'
 import {
   NoiseIkSession,
   createNoisePrologue,
   fromBase64Url,
   toBase64Url,
-} from '@dsh-remote/crypto'
+} from '@remote-session-plugin/crypto'
 import {
   DEFAULT_HEARTBEAT_INTERVAL_MS,
   PROTOCOL_VERSION,
@@ -33,7 +33,7 @@ import {
   type SignalIcePayload,
   type SignalPayload,
   type TransportSelectedPayload,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import {
   RtcDataChannelTransport,
   stunOnlyIceServers,
@@ -42,7 +42,7 @@ import {
   type RtcPeerConnectionFactory,
   type RtcSelectedTransport,
   type RtcSignal,
-} from '@dsh-remote/webrtc'
+} from '@remote-session-plugin/webrtc'
 import type { ConnectionCloseDetail, ConnectionController } from './connection-controller.js'
 import type { ResolvedConfig } from './config.js'
 import type { HostIdentity, IdentityStore, TrustedPeer } from './identity-store.js'

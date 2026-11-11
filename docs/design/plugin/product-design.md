@@ -41,7 +41,7 @@ Harness 通过官方 Typert Remote carrier 接入；CodeX 与 ACP 后端 保留�
 - CodeX 工具 scope 来自 Host 确认的 Thread cwd；ACP 工具 scope 来自会话创建或 Host catalog。
 - 终端默认开启，以 Host 用户权限运行；终端归属与输入权独立于 Agent 审批，断线不重放输入。
 - Loopback 只访问本地白名单端口，不支持任意目标、CONNECT 或通用 TCP 转发。
-- Remote 禁止修改 `ds-harness-remote` / `dsh-remote` 自身访问设置。
+- Remote 禁止修改 `remote-session-plugin` / `ds-harness-remote` / `dsh-remote` 自身访问设置。
 - AGY 图片仅允许 PNG/JPEG/WebP/GIF，每张 8 MiB、每次 4 张，写私有 tmp 缓存，保留 24 小时且总量有界。
 
 ## 非目标

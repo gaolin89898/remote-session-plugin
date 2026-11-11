@@ -70,7 +70,7 @@ function defaultMigrationGate(directory: string): string | undefined {
   const parts = directory.split(sep)
   let rootIndex = -1
   for (let index = parts.length - 1; index >= 0; index--) {
-    if ((parts[index] === 'remote' || parts[index] === 'ds-harness-remote')
+    if ((parts[index] === 'remote' || parts[index] === 'ds-harness-remote' || parts[index] === 'remote-session-plugin')
       && (index === parts.length - 1 || parts[index + 1] === 'servers')) {
       rootIndex = index
       break

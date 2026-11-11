@@ -74,7 +74,7 @@ Harness 日志或第二份 Codex 数据存储。
 Codex 默认开启，可在 DeepSeek Remote 设置卡片中关闭，修改后需要重启 DSH。
 
 ```yaml
-ds-harness-remote:
+remote-session-plugin:
   codex:
     enabled: false
     binary: codex
@@ -83,7 +83,7 @@ ds-harness-remote:
 `binary` 必须指向支持 `codex app-server` 的 Codex CLI。在 macOS 保持默认 `codex` 时，Plugin 会先
 尝试当前 ChatGPT App 内置的 Codex，再回退到 `PATH`；显式配置的 binary 始终原样使用。
 
-已有安装若仍使用旧的 `dsh-remote` 设置命名空间，Plugin 会一次性复制到 `ds-harness-remote`，同时
+已有安装若仍使用旧的 `dsh-remote` 设置命名空间，Plugin 会一次性复制到 `remote-session-plugin`，同时
 保留旧配置作为回退。
 
 ## 当前验证状态

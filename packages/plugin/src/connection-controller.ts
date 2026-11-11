@@ -3,7 +3,7 @@ import {
   createRpcError,
   encodeMessage,
   type RemoteMessage,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import type { IdentityStore } from './identity-store.js'
 import type { SafeLogger } from './logging.js'
 import type { RpcRouter } from './rpc-router.js'

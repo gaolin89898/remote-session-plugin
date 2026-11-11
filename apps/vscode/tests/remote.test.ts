@@ -62,8 +62,8 @@ const testState = vi.hoisted(() => ({
   transportOptions: [] as Array<{ capabilities?: string[] }>,
 }))
 
-vi.mock('@dsh-remote/client-core', async () => {
-  const actual = await vi.importActual<typeof import('@dsh-remote/client-core')>('@dsh-remote/client-core')
+vi.mock('@remote-session-plugin/client-core', async () => {
+  const actual = await vi.importActual<typeof import('@remote-session-plugin/client-core')>('@remote-session-plugin/client-core')
   return {
     ...actual,
     RemoteClientCore: class {
@@ -76,7 +76,7 @@ vi.mock('@dsh-remote/client-core', async () => {
   }
 })
 
-vi.mock('@dsh-remote/webrtc', () => ({ AdaptiveTransport: class { constructor(_url: string, options: { capabilities?: string[] }) { testState.transportOptions.push(options) } } }))
+vi.mock('@remote-session-plugin/webrtc', () => ({ AdaptiveTransport: class { constructor(_url: string, options: { capabilities?: string[] }) { testState.transportOptions.push(options) } } }))
 vi.mock('../src/server-api.js', () => ({
   ServerApi: class { async turnCredentials(): Promise<never[]> { return [] } },
 }))

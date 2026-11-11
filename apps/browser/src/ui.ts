@@ -101,7 +101,7 @@ export class Ui {
   private renderHeader(actions: boolean): string {
     const copy = launcherCopy()
     return `<header class="topbar">
-      <div class="brand"><img src="media/icon.png" width="30" height="30" alt=""><span><strong>DeepSeek Harness Remote</strong>${this.state.account === undefined ? '' : `<small>${escapeHtml(this.state.account)}</small>`}</span></div>
+      <div class="brand"><img src="media/icon.png" width="30" height="30" alt=""><span><strong>Remote Session Plugin</strong>${this.state.account === undefined ? '' : `<small>${escapeHtml(this.state.account)}</small>`}</span></div>
       ${actions ? `<div class="topActions"><button class="iconButton" id="refresh" type="button" aria-label="${escapeHtml(copy.refresh)}" title="${escapeHtml(copy.refresh)}" ${this.state.refreshing ? 'disabled' : ''}>${icon('RefreshCw', 17)}</button><button class="signOutButton" id="signOut" type="button">${icon('LogOut', 15)}${escapeHtml(copy.signOut)}</button></div>` : ''}
     </header>`
   }

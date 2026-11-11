@@ -1,5 +1,5 @@
 import { runScenarios } from '../../../scripts/test-scenarios.mjs'
-import { createRpcRequest, type RemoteWorkspaceTypeDescription } from '@dsh-remote/protocol'
+import { createRpcRequest, type RemoteWorkspaceTypeDescription } from '@remote-session-plugin/protocol'
 import { describe, expect, it, vi } from 'vitest'
 import type { HarnessRemoteBridge } from '../src/harness-remote-bridge.js'
 import type { RemoteFileViewerBridge } from '../src/file-viewer-bridge.js'

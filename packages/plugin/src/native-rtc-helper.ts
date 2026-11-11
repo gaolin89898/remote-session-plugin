@@ -13,8 +13,8 @@ import type {
   RtcSessionDescriptionInit,
   RtcStats,
   RtcStatsEntry,
-} from '@dsh-remote/webrtc'
-import { normalizeSdpMLineIndex } from '@dsh-remote/protocol'
+} from '@remote-session-plugin/webrtc'
+import { normalizeSdpMLineIndex } from '@remote-session-plugin/protocol'
 
 interface HelperResponse {
   id: number

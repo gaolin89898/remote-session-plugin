@@ -650,7 +650,7 @@ export function createRemotePluginOptions(React: ClientReact) {
         React.createElement('div', { className: 'dshRemoteAcpSummaryText' },
           React.createElement('strong', null, t('agentBackends')),
           React.createElement('p', null, t('acpHint'), React.createElement('a', {
-            href: 'https://github.com/gaolin89898/ds-harness-remote/blob/feat/cursor-remote/docs/acp-remote.md',
+            href: 'https://github.com/gaolin89898/remote-session-plugin/blob/feat/cursor-remote/docs/acp-remote.md',
             target: '_blank', rel: 'noopener noreferrer',
             onClick: (event: Event) => event.stopPropagation(),
           }, t('acpDocumentation'))))),

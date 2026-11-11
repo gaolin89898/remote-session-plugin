@@ -1,12 +1,12 @@
 /**
- * DS Harness Remote browser launcher service worker.
+ * Remote Session Plugin browser launcher service worker.
  *
  * The extension reads the current Web authorization only for the exchange call,
  * replaces it with an isolated Browser device credential, and
  * then owns Host discovery only. Remote workspaces, sessions and transport live
  * in Remote Web. Opening a Host reuses the Web session already held by the browser.
  */
-import { generateKeyPair } from '@dsh-remote/crypto'
+import { generateKeyPair } from '@remote-session-plugin/crypto'
 import { emptyState, isRecord, type AppState } from './common.js'
 import { ServerApi } from './server-api.js'
 import type { Credentials, DeviceIdentity } from './types.js'

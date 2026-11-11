@@ -1,12 +1,12 @@
 {
-  "name": "ds-harness-remote-tui",
+  "name": "remote-session-plugin-tui",
   "version": "0.1.0-alpha.0",
-  "description": "Terminal Host integration for ds-harness-remote",
+  "description": "Terminal Host integration for remote-session-plugin",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gaolin89898/ds-harness-remote.git",
+    "url": "git+https://github.com/gaolin89898/remote-session-plugin.git",
     "directory": "packages/tui-plugin"
   },
   "main": "./dist/index.js",
@@ -43,8 +43,8 @@
     "@deepseek-ai/dsh-api-gateway": "0.2.2-rc.1",
     "@deepseek-ai/dsh-api-remotes": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1",
-    "@dsh-remote/client-core": "workspace:*",
-    "@dsh-remote/crypto": "workspace:*",
+    "@remote-session-plugin/client-core": "workspace:*",
+    "@remote-session-plugin/crypto": "workspace:*",
     "esbuild": "^0.25.0",
     "typescript": "^5.7.3"
   }

@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/ds-harness-remote"><img src="https://img.shields.io/npm/v/ds-harness-remote?color=CB3837&amp;logo=npm" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/remote-session-plugin"><img src="https://img.shields.io/npm/v/remote-session-plugin?color=CB3837&amp;logo=npm" alt="npm"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License: MIT"></a>
   <a href="apps/server/README.md"><img src="https://img.shields.io/badge/%E8%87%AA%E9%83%A8%E7%BD%B2-Docker-2496ED?logo=docker&amp;logoColor=white" alt="自部署"></a>
-  <a href="https://dshfind.com/zh/plugins/gaolin89898/ds-harness-remote?ref=badge"><img src="https://dshfind.com/api/badge/gaolin89898/ds-harness-remote?metric=downloads&amp;lang=zh" alt="dshfind 下载量"></a>
+  <a href="https://dshfind.com/zh/plugins/gaolin89898/remote-session-plugin?ref=badge"><img src="https://dshfind.com/api/badge/gaolin89898/remote-session-plugin?metric=downloads&amp;lang=zh" alt="dshfind 下载量"></a>
 </p>
 
 
@@ -25,7 +25,7 @@ Harness 始终运行在工作电脑上，原有的工作区、工具和项目配
 
 已支持 DeepSeek Harness 桌面版，使用最新版本安装即可：
 
-`ds-harness-remote@0.6.4`
+`remote-session-plugin@0.6.4`
 
 ## 主要特性
 
@@ -44,7 +44,7 @@ Harness 始终运行在工作电脑上，原有的工作区、工具和项目配
 
 | 客户端 | 形态 | 状态 | 说明 |
 | --- | --- | --- | --- |
-| DSH&nbsp;Desktop&nbsp;插件 | Remote 侧栏 | 已支持 | 装 `ds-harness-remote@0.6.4`；Host 也可以就是这台电脑 |
+| DSH&nbsp;Desktop&nbsp;插件 | Remote 侧栏 | 已支持 | 装 `remote-session-plugin@0.6.4`；Host 也可以就是这台电脑 |
 | Web | 浏览器页面 | 已支持 | 打开 [https://dsh.gaolin.ink](https://dsh.gaolin.ink)，复用 Harness 原生界面 |
 | DSH Go | C佬精品 | 已支持 | 移动端客户端，详情见：[ccch1mneyyy/dsh-go: DeepSeek Harness 的 Android 客户端。手机上直接跑，也能遥控你电脑上的 DSH。](https://github.com/ccch1mneyyy/dsh-go) |
 | 浏览器扩展 | Chrome | 仅入口 | 读取已登录 Web 的授权换取独立设备凭据、列出在线 Host、打开同源 Remote Web，不承载会话界面 |
@@ -59,10 +59,10 @@ Harness 始终运行在工作电脑上，原有的工作区、工具和项目配
 
 在 DeepSeek Harness Desktop 的 **扩展 / 插件管理** 中，选择从 **npm** 安装，输入包名和版本：
 
-`ds-harness-remote@0.6.4`
+`remote-session-plugin@0.6.4`
 
 安装后重启 Desktop。也可使用它的官方 `dsh` 启动器安装固定版本：
-`dsh plugin --profile desktop add -w ds-harness-remote@0.6.4`。
+`dsh plugin --profile desktop add -w remote-session-plugin@0.6.4`。
 
 DSH 0.2.2 起，npm 安装支持在插件页检查版本和一键更新；热更新失败时由 DSH 尝试恢复旧版。GitHub / 本地 link 安装需先切换到 npm，见[在线更新说明](docs/installation.md#dsh-插件页在线更新)。
 
@@ -72,13 +72,13 @@ DSH 0.2.2 起，npm 安装支持在插件页检查版本和一键更新；热更
 
 ### 移动端客户端
 
-移动端使用 [DSH Go](https://github.com/ccch1mneyyy/dsh-go)（已内置 ds-harness-remote 协议）。
+移动端使用 [DSH Go](https://github.com/ccch1mneyyy/dsh-go)（已内置 remote-session-plugin 协议）。
 
 ## DSH Go - DeepSeek Harness 装进口袋：手机本机运行，也能遥控你的电脑。
 
-[ccch1mneyyy/dsh-go](https://github.com/ccch1mneyyy/dsh-go)：已内置 ds-harness-remote 协议，既可以在手机本机运行 DeepSeek Harness，也可以远程连接电脑。
+[ccch1mneyyy/dsh-go](https://github.com/ccch1mneyyy/dsh-go)：已内置 remote-session-plugin 协议，既可以在手机本机运行 DeepSeek Harness，也可以远程连接电脑。
 
-在手机端DSH Go安装 ds-harness-remote 插件后，电脑端、Web端一样可以远程到手机上的DSH，丝滑使用Mobile Use.
+在手机端DSH Go安装 remote-session-plugin 插件后，电脑端、Web端一样可以远程到手机上的DSH，丝滑使用Mobile Use.
 
 ## 快速开始
 
@@ -115,7 +115,7 @@ Host 上的 Remote 插件
 Harness 会话/Workspace 或 Codex 项目
 ```
 
-Harness 主机无需开放公网监听端口。只要能够访问互联网，就可以从任意地方连接，ds-harness-remote 通过双向端到端加密链路通信。
+Harness 主机无需开放公网监听端口。只要能够访问互联网，就可以从任意地方连接，remote-session-plugin 通过双向端到端加密链路通信。
 
 它将客户端切换到所选 Host 的 Harness 原生 API，因此原有 Workspace、工具和权限流程都保留在该电脑上。
 
@@ -123,7 +123,7 @@ Harness 主机无需开放公网监听端口。只要能够访问互联网，就
 
 ## 实验性 ACP 工作区
 
-Host 启动本机支持ACP 的Agent，通过ds-harness-remote 通道传递 Prompt、流式回复和审批。所有Agent都使用自身工作区和会话，只做DSH 会话翻译转换，不写入 Harness 存储。
+Host 启动本机支持ACP 的Agent，通过remote-session-plugin 通道传递 Prompt、流式回复和审批。所有Agent都使用自身工作区和会话，只做DSH 会话翻译转换，不写入 Harness 存储。
 
 当前已支持：
 
@@ -257,17 +257,17 @@ DS Bot 是一个基于 DeepSeek Harness（简称 dsh）的 bot 插件，插件�
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=gaolin89898%2Fds-harness-remote&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=gaolin89898%2Fremote-session-plugin&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=gaolin89898/ds-harness-remote&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gaolin89898/ds-harness-remote&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=gaolin89898/ds-harness-remote&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=gaolin89898/remote-session-plugin&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gaolin89898/remote-session-plugin&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=gaolin89898/remote-session-plugin&type=date&legend=top-left" />
  </picture>
 </a>
 
 ## 贡献者
 
-`ds-harness-remote` 由开源社区共同驱动与维护。我们坚信，优秀的基础工具不仅由代码铸就，更由每一位使用它、测试它、修正文档或分享想法的人共同塑造。
+`remote-session-plugin` 由开源社区共同驱动与维护。我们坚信，优秀的基础工具不仅由代码铸就，更由每一位使用它、测试它、修正文档或分享想法的人共同塑造。
 
 无论你的技术背景如何，任何形式的参与都同样珍贵：
 
@@ -277,8 +277,8 @@ DS Bot 是一个基于 DeepSeek Harness（简称 dsh）的 bot 插件，插件�
 - **代码与代码审查**：认领待办事项、修复缺陷、实现新特性，或是协助 Review 社区的 Pull Request。
 
 <p align="center">
-  <a href="https://github.com/gaolin89898/ds-harness-remote/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=gaolin89898/ds-harness-remote&max=30" alt="贡献者头像墙" />
+  <a href="https://github.com/gaolin89898/remote-session-plugin/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=gaolin89898/remote-session-plugin&max=30" alt="贡献者头像墙" />
   </a>
 </p>
 
@@ -292,7 +292,7 @@ DS Bot 是一个基于 DeepSeek Harness（简称 dsh）的 bot 插件，插件�
 
 ## 连接问题排查
 
-Host：在 **插件 → Remote 设置** 开启 **Debug 日志**，立即生效并持久保存；排查完成后关闭（恢复 `info` 级别）。日志带 `[ds-harness-remote]` 前缀，Desktop 可在 `desktop.log` 查找。手动配置可设置 `logLevel: debug`。
+Host：在 **插件 → Remote 设置** 开启 **Debug 日志**，立即生效并持久保存；排查完成后关闭（恢复 `info` 级别）。日志带 `[remote-session-plugin]` 前缀，Desktop 可在 `desktop.log` 查找。手动配置可设置 `logLevel: debug`。
 
 ## License
 

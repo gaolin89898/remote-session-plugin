@@ -1,6 +1,6 @@
 import { runScenarios, scenarioName } from '../../../scripts/test-scenarios.mjs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createControlFrame } from '@dsh-remote/protocol'
+import { createControlFrame } from '@remote-session-plugin/protocol'
 import {
   AdaptiveTransport,
   RelayTransport,

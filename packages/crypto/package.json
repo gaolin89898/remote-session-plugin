@@ -1,5 +1,5 @@
 {
-  "name": "@dsh-remote/crypto",
+  "name": "@remote-session-plugin/crypto",
   "version": "0.5.21",
   "type": "module",
   "main": "./dist/index.js",

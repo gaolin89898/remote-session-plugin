@@ -1,4 +1,4 @@
-import { MAX_SECURE_MESSAGE_BYTES } from '@dsh-remote/protocol'
+import { MAX_SECURE_MESSAGE_BYTES } from '@remote-session-plugin/protocol'
 import { describe, expect, it, vi } from 'vitest'
 import type { PluginRouteDispatcher } from '../src/plugin-route-bridge.js'
 import { PluginRouteBridge } from '../src/plugin-route-bridge.js'
@@ -24,7 +24,7 @@ describe('PluginRouteBridge', () => {
     await runScenarios([
       'http://evil/api/bot', '../etc/passwd', '', `api/${'x'.repeat(65)}`,
       'api/bot?x=1', '/api/bot', 'api/unknown', 'api/bot/child',
-      'api/../ds-harness-remote/host.logout', 'api/./bot', 'api/other/../bot',
+      'api/../remote-session-plugin/host.logout', 'api/./bot', 'api/other/../bot',
       'api/%62ot', 'api/bot\n',
     ].map(route => ({
       name: JSON.stringify(route),

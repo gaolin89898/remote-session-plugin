@@ -36,7 +36,7 @@ describe('native sidebar access boundaries', () => {
       await expect(bridge.call({ endpoint, payload: { args: {} } })).rejects.toMatchObject({ code: 'METHOD_NOT_ALLOWED' })
     }
     for (const endpoint of ['settings/update', 'settings/replace', 'settings/mutate']) {
-      await expect(bridge.call({ endpoint, payload: { args: { ns: 'ds-harness-remote', patch: { terminal: { enabled: true } } } } })).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+      await expect(bridge.call({ endpoint, payload: { args: { ns: 'remote-session-plugin', patch: { terminal: { enabled: true } } } } })).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
     }
   })
   it('keeps terminals device-owned through reconnect, scopes input attachments and filters list', async () => {

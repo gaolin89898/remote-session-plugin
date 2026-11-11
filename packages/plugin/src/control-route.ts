@@ -2,7 +2,7 @@ import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:
 import type { ControlResult } from './control-result.js'
 
 /** Namespaced loopback RPC prefix shared by the Host runtime and browser UI. */
-export const CONTROL_RPC_PREFIX = '/ds-harness-remote'
+export const CONTROL_RPC_PREFIX = '/remote-session-plugin'
 
 /** Loopback control endpoint carrying the status event stream. */
 export const STATUS_STREAM_ENDPOINT = 'status.events'

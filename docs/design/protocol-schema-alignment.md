@@ -1,6 +1,6 @@
 # Protocol Schema 对齐设计
 
-更新时间：2026-10-08；关联 [Issue #34](https://github.com/gaolin89898/ds-harness-remote/issues/34)。
+更新时间：2026-10-08；关联 [Issue #34](https://github.com/gaolin89898/remote-session-plugin/issues/34)。
 
 ## 目标与当前状态
 

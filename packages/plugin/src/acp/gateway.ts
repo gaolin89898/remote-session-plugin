@@ -373,7 +373,7 @@ export class AcpRemoteGateway {
         const defaultCandidates = new Set<string>()
         const cwd = process.cwd()
         if (cwd) defaultCandidates.add(cwd)
-        for (const candidate of ['/var/lib/dsh/workspace/ds-harness-remote', '/srv/dsh-workspace', '/var/lib/dsh/local']) {
+        for (const candidate of ['/var/lib/dsh/workspace/remote-session-plugin', '/var/lib/dsh/workspace/ds-harness-remote', '/srv/dsh-workspace', '/var/lib/dsh/local']) {
           try {
             const s = await stat(candidate)
             if (s.isDirectory()) defaultCandidates.add(candidate)
@@ -386,7 +386,7 @@ export class AcpRemoteGateway {
       const candidates = new Set<string>()
       const cwd = process.cwd()
       if (cwd) candidates.add(cwd)
-      for (const candidate of ['/var/lib/dsh/workspace/ds-harness-remote', '/var/lib/dsh/local']) {
+      for (const candidate of ['/var/lib/dsh/workspace/remote-session-plugin', '/var/lib/dsh/workspace/ds-harness-remote', '/var/lib/dsh/local']) {
         try {
           const s = await stat(candidate)
           if (s.isDirectory()) candidates.add(candidate)

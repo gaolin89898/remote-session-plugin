@@ -29,6 +29,7 @@ describe('Cordis plugin lifecycle', () => {
       { id: 'foreign-disabled', options: { id: 'foreign-disabled', name: 'dsh-remote', disabled: true } },
       { id: 'owned', options: { id: 'owned', name: '@dsh-remote/plugin', disabled: false } },
       { id: 'owned-disabled', options: { id: 'owned-disabled', name: '@dsh-remote/plugin', disabled: true } },
+      { id: 'self-old', options: { id: 'self-old', name: 'ds-harness-remote', disabled: false } },
       { id: 'other', options: { id: 'other', name: 'another-plugin', disabled: false } },
     ]
     const update = vi.fn(async (id: string, options: { disabled?: boolean | null }) => {
@@ -42,10 +43,10 @@ describe('Cordis plugin lifecycle', () => {
     const fiber = await ctx.plugin(remotePlugin, { ...disabledAgentDomains, deviceName: 'Cordis ownership test host' })
     try {
       await vi.waitFor(() => expect(ctx.dshRemote.currentIdentity()).toBeDefined())
-      expect(update.mock.calls).toEqual([['owned', { disabled: true }]])
+      expect(update.mock.calls).toEqual([['owned', { disabled: true }], ['self-old', { disabled: true }]])
       expect(entries.map(entry => [entry.id, entry.options.disabled])).toEqual([
         ['current', false], ['foreign', false], ['foreign-null', null], ['foreign-disabled', true],
-        ['owned', true], ['owned-disabled', true], ['other', false],
+        ['owned', true], ['owned-disabled', true], ['self-old', true], ['other', false],
       ])
     } finally {
       await fiber.dispose()
@@ -281,7 +282,7 @@ describe('Cordis plugin lifecycle', () => {
     ctx.provide('connection', connection())
     const fiber = await ctx.plugin(remotePlugin, { ...disabledAgentDomains, deviceName: 'Host', serverUrl })
     try {
-      const migratedHostDir = remotePlugin.serverStorageDirectory(join(dshHome, 'ds-harness-remote'), serverUrl, 'host')
+      const migratedHostDir = remotePlugin.serverStorageDirectory(join(dshHome, 'remote-session-plugin'), serverUrl, 'host')
       await vi.waitFor(async () => {
         expect(refreshCalls.some(url => url.endsWith('/api/v1/auth/refresh'))).toBe(true)
         const updated = await new remotePlugin.ServerCredentialStore(migratedHostDir).load(serverUrl, hostIdentity.deviceId)
@@ -317,7 +318,7 @@ describe('Cordis plugin lifecycle', () => {
     await vi.waitFor(() => {
       expect(ctx.dshRemote.currentIdentity()).toMatchObject({ name: 'Cordis delayed connection host' })
     })
-    expect(handle).toHaveBeenCalledWith('/ds-harness-remote', expect.any(Function), {
+    expect(handle).toHaveBeenCalledWith('/remote-session-plugin', expect.any(Function), {
       authority: 'loopback',
     })
 
@@ -352,7 +353,7 @@ describe('Cordis plugin lifecycle', () => {
 
     expect(ctx.get('dshRemote')).toBeUndefined()
     await vi.waitFor(() => expect(handlers).toHaveLength(1))
-    expect(handlers[0]?.channel).toBe('/ds-harness-remote')
+    expect(handlers[0]?.channel).toBe('/remote-session-plugin')
     await expect(handlers[0]?.handler('status', {}, new AbortController().signal)).resolves.toMatchObject({
       ok: true,
       value: {
@@ -532,7 +533,7 @@ function settings(value: Record<string, unknown>) {
     // These tests exercise Harness registration/disposal, not installed Agent
     // CLIs. Keep optional processes out of the fixture (including the bundled
     // CodeX fallback, which is discoverable even with an isolated PATH).
-    describe: () => [{ ns: 'ds-harness-remote', value: {
+    describe: () => [{ ns: 'remote-session-plugin', value: {
       ...disabledAgentDomains,
       ...value,
     } }],

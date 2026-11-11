@@ -1,4 +1,4 @@
-import type { RemoteMessage } from '@dsh-remote/protocol'
+import type { RemoteMessage } from '@remote-session-plugin/protocol'
 
 export interface AuthenticatedPeerChannel {
   /**

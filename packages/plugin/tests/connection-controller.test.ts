@@ -1,5 +1,5 @@
 import { runScenarios } from '../../../scripts/test-scenarios.mjs'
-import { MAX_SECURE_MESSAGE_BYTES, createRpcRequest, createRpcResponse, type RemoteMessage } from '@dsh-remote/protocol'
+import { MAX_SECURE_MESSAGE_BYTES, createRpcRequest, createRpcResponse, type RemoteMessage } from '@remote-session-plugin/protocol'
 import { describe, expect, it, vi } from 'vitest'
 import { ConnectionController, ConnectionRejectedError } from '../src/connection-controller.js'
 import { SafeLogger } from '../src/logging.js'

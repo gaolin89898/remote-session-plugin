@@ -7,7 +7,7 @@ import { WorkspaceUploadHost } from '../src/workspace-upload.js'
 import { RemoteSessionTools } from '../src/remote-session-tools.js'
 import { RemoteTypertGateway } from '../src/remote-typert-gateway.js'
 import type { ConnectedRemote } from '../src/client-runtime-contract.js'
-import type { RemoteClientCore } from '@dsh-remote/client-core'
+import type { RemoteClientCore } from '@remote-session-plugin/client-core'
 import { runScenarios } from '../../../scripts/test-scenarios.mjs'
 
 afterEach(() => vi.restoreAllMocks())

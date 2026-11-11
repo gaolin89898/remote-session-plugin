@@ -25,12 +25,12 @@ function patchPackageNames(content) {
     .map(match => match[1] ?? match[2] ?? match[3])
 }
 
-assert.equal(manifest.name, 'ds-harness-remote-tui')
+assert.equal(manifest.name, 'remote-session-plugin-tui')
 assert.equal(component.facets.host.entry, 'dist/index.js')
-assert.match(patch, /name: 'ds-harness-remote-tui'/)
+assert.match(patch, /name: 'remote-session-plugin-tui'/)
 assert.match(patch, /name: '@deepseek-ai\/dsh-api-remotes'/)
 assert.match(bundle, /dsh-TUI Remote needs @deepseek-ai\/dsh-api-remotes/)
-assert.doesNotMatch(bundle, /(?:from\s+|require\()['"]@dsh-remote\//)
+assert.doesNotMatch(bundle, /(?:from\s+|require\()['"]@remote-session-plugin\//)
 
 const { apply } = await import('../dist/index.js')
 const names = patchPackageNames(patch)

@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "DS Harness Remote",
+    "title": "Remote Session Plugin",
     "description": "P2P-based, end-to-end encrypted remote access to DeepSeek Harness, CodeX, Claude Code, Pi, and other workspaces from web and mobile clients.",
     "detail": "locale/README.md"
   }

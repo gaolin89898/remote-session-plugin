@@ -1,4 +1,4 @@
-import type { AcpBackend, AcpInitializeParams, AcpInitializeResult, AcpPromptParams, AcpSessionParams, AcpPermissionResponseParams, AcpCancelParams, AcpSetModeParams, AcpSessionUpdate } from '@dsh-remote/protocol'
+import type { AcpBackend, AcpInitializeParams, AcpInitializeResult, AcpPromptParams, AcpSessionParams, AcpPermissionResponseParams, AcpCancelParams, AcpSetModeParams, AcpSessionUpdate } from '@remote-session-plugin/protocol'
 
 /** Backend-neutral ACP adapter. Implementations must keep state scoped to a connection. */
 export interface AcpBackendAdapter {

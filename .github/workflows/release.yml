@@ -53,7 +53,7 @@ jobs:
             throw new Error(`Expected ${base}-tui.<positive integer>`)
           }
           manifest.version = version
-          manifest.dependencies['ds-harness-remote'] = base
+          manifest.dependencies['remote-session-plugin'] = base
           writeFileSync(file, JSON.stringify(manifest, null, 2) + '\n')
           NODE
       - name: Verify dependency and publish
@@ -61,7 +61,7 @@ jobs:
           TUI_VERSION: ${{ inputs.version }}
         run: |
           BASE_VERSION="$(node -p "require('./packages/plugin/package.json').version")"
-          npm view "ds-harness-remote@$BASE_VERSION" version
+          npm view "remote-session-plugin@$BASE_VERSION" version
           npm pack ./packages/tui --dry-run
           npm publish ./packages/tui --access public --provenance --tag tui-test
 
@@ -97,7 +97,7 @@ jobs:
           const plugin = await readJson('packages/plugin/package.json')
           const tui = await readJson('packages/tui/package.json')
           const versions = new Set([root.version, plugin.version, tui.version])
-          if (tui.dependencies['ds-harness-remote'] !== `workspace:${plugin.version}`) {
+          if (tui.dependencies['remote-session-plugin'] !== `workspace:${plugin.version}`) {
             throw new Error('TUI must depend on the matching Remote workspace version.')
           }
           const expectedTag = `v${plugin.version}`
@@ -147,7 +147,7 @@ jobs:
           NODE_ENV=production pnpm --dir apps/browser build
           mkdir -p release-assets/browser-extension
           cd apps/browser
-          zip -qr "$GITHUB_WORKSPACE/release-assets/dsh-remote-browser-${GITHUB_REF_NAME}.zip" \
+          zip -qr "$GITHUB_WORKSPACE/release-assets/remote-session-plugin-browser-${GITHUB_REF_NAME}.zip" \
             manifest.json popup.html styles.css media _locales dist
 
       - name: Update release checksums
@@ -175,14 +175,14 @@ jobs:
       - name: Publish npm TUI
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          if npm view "ds-harness-remote@$VERSION" >/dev/null 2>&1; then
-            if npm view "ds-harness-remote-tui@$VERSION" >/dev/null 2>&1; then
+          if npm view "remote-session-plugin@$VERSION" >/dev/null 2>&1; then
+            if npm view "remote-session-plugin-tui@$VERSION" >/dev/null 2>&1; then
               echo "TUI version already exists on npm, skip publish."
             else
-              npm publish "release-assets/ds-harness-remote-tui-$VERSION.tgz" --access public --provenance
+              npm publish "release-assets/remote-session-plugin-tui-$VERSION.tgz" --access public --provenance
             fi
           else
-            echo '::error::Publish ds-harness-remote before its matching TUI package.'
+            echo '::error::Publish remote-session-plugin before its matching TUI package.'
             exit 1
           fi
 
@@ -192,7 +192,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           PACKAGE_SCOPE="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
-          PACKAGE_NAME="@${PACKAGE_SCOPE}/ds-harness-remote"
+          PACKAGE_NAME="@${PACKAGE_SCOPE}/remote-session-plugin"
           NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/github-packages.npmrc"
           export NPM_CONFIG_USERCONFIG PACKAGE_NAME
 
@@ -207,7 +207,7 @@ jobs:
 
           GITHUB_PACKAGE_DIR="$RUNNER_TEMP/github-package"
           mkdir -p "$GITHUB_PACKAGE_DIR"
-          tar -xzf "release-assets/ds-harness-remote-$VERSION.tgz" -C "$GITHUB_PACKAGE_DIR"
+          tar -xzf "release-assets/remote-session-plugin-$VERSION.tgz" -C "$GITHUB_PACKAGE_DIR"
 
           node --input-type=module <<'NODE'
           import { readFile, writeFile } from 'node:fs/promises'

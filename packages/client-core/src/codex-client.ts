@@ -3,11 +3,11 @@ import type {
   CodexAppStreamClosedData,
   CodexAppTransferCommitResult,
   CodexAppTransferReadResult,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import {
   CODEX_APP_TRANSFER_CHUNK_BYTES,
   MAX_CODEX_APP_TRANSFER_BYTES,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import type { RemoteClientCore } from './index.js'
 import { createRemoteId, RemoteGatewayError } from './remote-gateway.js'
 

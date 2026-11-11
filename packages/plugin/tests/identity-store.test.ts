@@ -38,7 +38,7 @@ describe('IdentityStore', () => {
     const home = await temporaryDirectory()
     const env = { DSH_HOME: home }
     const source = join(home, 'remote')
-    const target = join(home, 'ds-harness-remote')
+    const target = join(home, 'remote-session-plugin')
     const records: Array<{ directory: string; identity: Awaited<ReturnType<IdentityStore['loadOrCreate']>>; peers: unknown; files: Map<string, Buffer> }> = []
     for (const origin of ['https://first.example.com', 'https://second.example.com']) {
       for (const role of ['host', 'client'] as const) {
@@ -146,7 +146,7 @@ describe('IdentityStore', () => {
     })
     await rename(liveMigrationTemp, join(source, 'server-credentials.json'))
     await chmod(join(source, 'server-credentials.json'), 0o600)
-    expect(await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })).toBe(join(home, 'ds-harness-remote'))
+    expect(await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })).toBe(join(home, 'remote-session-plugin'))
   })
 
   it('reclaims exited-owner identity and interrupted real-hash takeover locks during migration and runtime load while preserving live lock and concurrent takeover protection', async () => {
@@ -184,7 +184,7 @@ describe('IdentityStore', () => {
       await writeFile(join(directory, secondTakeover), `${deadSecondContender}\n`, { mode: 0o600 })
 
       const target = await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
-      expect(target).toBe(join(home, 'ds-harness-remote'))
+      expect(target).toBe(join(home, 'remote-session-plugin'))
       const moved = directory.replace(source, target)
       expect(await readdir(moved)).not.toContain('device.lock')
       expect(await readdir(moved)).not.toContain(realTakeover)
@@ -245,7 +245,7 @@ describe('IdentityStore', () => {
       for (const [name, bytes] of beforeBytes) {
         expect(await readFile(join(hostDir, name)), `${liveScenario}:${name}`).toEqual(bytes)
       }
-      await expect(stat(join(home, 'ds-harness-remote'))).rejects.toMatchObject({ code: 'ENOENT' })
+      await expect(stat(join(home, 'remote-session-plugin'))).rejects.toMatchObject({ code: 'ENOENT' })
     }
   })
 
@@ -312,7 +312,7 @@ describe('IdentityStore', () => {
       }
 
       const target = await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
-      expect(target, scenario).toBe(join(home, 'ds-harness-remote'))
+      expect(target, scenario).toBe(join(home, 'remote-session-plugin'))
       const movedHostDir = serverStorageDirectory(target, serverUrl, 'host')
       expect(await new IdentityStore({ directory: movedHostDir, role: 'host' }).loadOrCreate('Host'), scenario).toEqual(hostIdentity)
       expect(await readFile(join(movedHostDir, 'server-credentials.json')), scenario).toEqual(hostCredentialBytes)
@@ -388,7 +388,7 @@ describe('IdentityStore', () => {
     for (const scenario of ['conflict', 'destination-race', 'identity-lock', 'refresh-lock', 'symlink']) {
       const home = await temporaryDirectory()
       const source = join(home, 'remote')
-      const target = join(home, 'ds-harness-remote')
+      const target = join(home, 'remote-session-plugin')
       const original = await new IdentityStore({ directory: source }).loadOrCreate('Host')
       if (scenario === 'conflict') await mkdir(target)
       if (scenario === 'destination-race') await mockMoveFailure(source, target, 'EEXIST', true)
@@ -414,8 +414,8 @@ describe('IdentityStore', () => {
     await writeFile(holder, `${process.pid}-00000000-0000-7000-8000-000000000000 1\n`)
     await expect(prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })).rejects.toMatchObject({ code: 'IDENTITY_LOCKED' })
     await rm(holder)
-    expect(await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })).toBe(join(home, 'ds-harness-remote'))
-    expect(await readFile(join(home, 'ds-harness-remote', 'server-credentials.json.refresh-lock'), 'utf8'))
+    expect(await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })).toBe(join(home, 'remote-session-plugin'))
+    expect(await readFile(join(home, 'remote-session-plugin', 'server-credentials.json.refresh-lock'), 'utf8'))
       .toBe('DSH_REFRESH_LOCK_V2\n')
   })
 
@@ -434,7 +434,7 @@ describe('IdentityStore', () => {
     const temporary = `${lock}.holder-${id}.${pid}.00000000-0000-7000-8000-000000000002.tmp`
     await writeFile(temporary, 'partial')
     const target = await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
-    expect(target).toBe(join(home, 'ds-harness-remote'))
+    expect(target).toBe(join(home, 'remote-session-plugin'))
     expect(await readdir(target)).not.toContain(`server-credentials.json.refresh-lock.holder-${id}`)
     expect(await readFile(join(target, temporary.slice(source.length + 1)), 'utf8')).toBe('partial')
   })
@@ -457,7 +457,7 @@ describe('IdentityStore', () => {
     expect((await stat(holder)).nlink).toBe(2)
 
     const target = await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
-    expect(target).toBe(join(home, 'ds-harness-remote'))
+    expect(target).toBe(join(home, 'remote-session-plugin'))
     expect(await readdir(target)).not.toContain(markerTemp.slice(source.length + 1))
     expect(await readdir(target)).not.toContain(holderTemp.slice(source.length + 1))
     expect(await readdir(target)).not.toContain(holder.slice(source.length + 1))
@@ -495,15 +495,15 @@ describe('IdentityStore', () => {
     await started
     const moving = prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
     await new Promise(resolve => setTimeout(resolve, 100))
-    await expect(stat(join(home, 'ds-harness-remote'))).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(join(home, 'remote-session-plugin'))).rejects.toMatchObject({ code: 'ENOENT' })
     release()
     await refresh
-    expect(await moving).toBe(join(home, 'ds-harness-remote'))
+    expect(await moving).toBe(join(home, 'remote-session-plugin'))
   })
 
   it('holds the migration gate while a default identity reset clears credentials', async () => {
     const home = await temporaryDirectory()
-    const target = join(home, 'ds-harness-remote')
+    const target = join(home, 'remote-session-plugin')
     await new IdentityStore({ directory: target }).loadOrCreate('Host')
     let enteredClear!: () => void
     let releaseClear!: () => void
@@ -543,7 +543,7 @@ describe('IdentityStore', () => {
       await store.trustPeer({ deviceId: original.deviceId, name: 'Peer', platform: 'linux', publicKey: original.publicKey })
       const credentials = await new ServerCredentialStore(source).save({ serverUrl: 'https://first.example.com', deviceId: original.deviceId, authorizationMethod: 'owned_device', accessToken: 'fixture-access-token', accessTokenExpiresAt: 1, refreshToken: 'fixture-refresh-token', refreshTokenExpiresAt: 2 })
       const bytes = await readFile(join(source, 'server-credentials.json'))
-      await mockMoveFailure(source, join(home, 'ds-harness-remote'), code)
+      await mockMoveFailure(source, join(home, 'remote-session-plugin'), code)
       expect(await prepareDefaultIdentityDirectory({ env }), code).toBe(source)
       // A subsequent default-store load must adopt the fallback, without retrying
       // the move or creating a replacement identity at the canonical path.
@@ -553,7 +553,51 @@ describe('IdentityStore', () => {
       expect(fallback.listTrustedPeers()).toEqual(store.listTrustedPeers())
       expect(await new ServerCredentialStore(fallback.directory).load(credentials.serverUrl, original.deviceId)).toEqual(credentials)
       expect(await readFile(join(source, 'server-credentials.json'))).toEqual(bytes)
-      await expect(stat(join(home, 'ds-harness-remote'))).rejects.toMatchObject({ code: 'ENOENT' })
+      await expect(stat(join(home, 'remote-session-plugin'))).rejects.toMatchObject({ code: 'ENOENT' })
+    }
+  })
+
+  it('migrates the previous plugin root and refuses ambiguous legacy pairs', async () => {
+    for (const scenario of ['previous-root', 'both-legacy', 'fallback-pin', 'fresh-install']) {
+      const home = await temporaryDirectory()
+      const env = { DSH_HOME: home }
+      const target = join(home, 'remote-session-plugin')
+      const previous = join(home, 'ds-harness-remote')
+      if (scenario === 'fresh-install') {
+        expect(await prepareDefaultIdentityDirectory({ env }), scenario).toBe(target)
+        await expect(stat(target)).rejects.toMatchObject({ code: 'ENOENT' })
+        continue
+      }
+      const source = scenario === 'both-legacy' ? join(home, 'remote') : previous
+      const store = new IdentityStore({ directory: source })
+      const original = await store.loadOrCreate('Host')
+      await store.trustPeer({ deviceId: original.deviceId, name: 'Peer', platform: 'linux', publicKey: original.publicKey })
+      const credentials = await new ServerCredentialStore(source).save({ serverUrl: 'https://first.example.com', deviceId: original.deviceId, authorizationMethod: 'owned_device', accessToken: 'fixture-access-token', accessTokenExpiresAt: 1, refreshToken: 'fixture-refresh-token', refreshTokenExpiresAt: 2 })
+      if (scenario === 'both-legacy') {
+        // A previous root and the renamed one must never be merged silently.
+        await mkdir(previous)
+        await new IdentityStore({ directory: previous }).loadOrCreate('Host')
+        await expect(prepareDefaultIdentityDirectory({ env }), scenario).rejects.toMatchObject({ code: 'STORAGE_CONFLICT' })
+        expect((await readFile(join(source, 'device.key'), 'utf8')).trim()).toBe(original.privateKey)
+        await expect(stat(target)).rejects.toMatchObject({ code: 'ENOENT' })
+        continue
+      }
+      if (scenario === 'fallback-pin') {
+        await mockMoveFailure(source, target, 'EACCES')
+        expect(await prepareDefaultIdentityDirectory({ env }), scenario).toBe(source)
+        const fallback = new IdentityStore({ env })
+        expect(await fallback.loadOrCreate('Host'), scenario).toEqual(original)
+        expect(fallback.directory).toBe(source)
+        expect(await new ServerCredentialStore(fallback.directory).load(credentials.serverUrl, original.deviceId)).toEqual(credentials)
+        await expect(stat(target)).rejects.toMatchObject({ code: 'ENOENT' })
+        continue
+      }
+      const migrated = await prepareDefaultIdentityDirectory({ env })
+      expect(migrated, scenario).toBe(target)
+      expect((await readFile(join(target, 'device.key'), 'utf8')).trim()).toBe(original.privateKey)
+      expect(await new IdentityStore({ directory: target }).loadOrCreate('Host')).toEqual(original)
+      expect(await new ServerCredentialStore(target).load(credentials.serverUrl, original.deviceId)).toEqual(credentials)
+      await expect(stat(source)).rejects.toMatchObject({ code: 'ENOENT' })
     }
   })
 
@@ -562,7 +606,7 @@ describe('IdentityStore', () => {
       const home = await temporaryDirectory()
       const source = join(home, 'remote')
       const original = await new IdentityStore({ directory: source }).loadOrCreate('Host')
-      await mockMoveFailure(source, join(home, 'ds-harness-remote'), 'EACCES')
+      await mockMoveFailure(source, join(home, 'remote-session-plugin'), 'EACCES')
       await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
       const pinPath = join(home, '.ds-harness-remote-migration', 'legacy-root.json')
       if (scenario === 'float-pin') {
@@ -582,7 +626,7 @@ describe('IdentityStore', () => {
       if (scenario === 'replaced') await new IdentityStore({ directory: source }).loadOrCreate('Other Host')
       await expect(prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } }), scenario).rejects.toBeInstanceOf(IdentityInvalidError)
       expect((await readFile(join(backup, 'device.key'), 'utf8')).trim()).toBe(original.privateKey)
-      await expect(stat(join(home, 'ds-harness-remote'))).rejects.toMatchObject({ code: 'ENOENT' })
+      await expect(stat(join(home, 'remote-session-plugin'))).rejects.toMatchObject({ code: 'ENOENT' })
     }
   })
 
@@ -618,7 +662,7 @@ describe('IdentityStore', () => {
       const before = await snapshot(source)
       await expect(prepareDefaultIdentityDirectory({ env }), scenario).rejects.toThrow('ownership could not be verified')
       expect(await snapshot(source), scenario).toEqual(before)
-      await expect(stat(join(home, 'ds-harness-remote'))).rejects.toMatchObject({ code: 'ENOENT' })
+      await expect(stat(join(home, 'remote-session-plugin'))).rejects.toMatchObject({ code: 'ENOENT' })
     }
   })
 
@@ -776,7 +820,7 @@ describe('IdentityStore', () => {
         await writeFile(join(legacyClientDir, 'device.key'), `${second.privateKey}\n`, { mode: 0o600 })
 
         const migratedRoot = await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
-        expect(migratedRoot).toBe(join(home, 'ds-harness-remote'))
+        expect(migratedRoot).toBe(join(home, 'remote-session-plugin'))
         const migratedClientDir = serverStorageDirectory(migratedRoot, serverUrl, 'client')
         const healedClient = await new IdentityStore({ directory: migratedClientDir, role: 'client' }).loadOrCreate('Client')
         expect(healedClient.deviceId).not.toBe(first.deviceId)
@@ -811,7 +855,7 @@ describe('IdentityStore', () => {
         await writeFile(join(legacyClientDir, 'device.key'), `${second.privateKey}\n`, { mode: 0o600 })
 
         const migratedRoot = await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
-        expect(migratedRoot).toBe(join(home, 'ds-harness-remote'))
+        expect(migratedRoot).toBe(join(home, 'remote-session-plugin'))
         const migratedHostDir = serverStorageDirectory(migratedRoot, serverUrl, 'host')
         const migratedClientDir = serverStorageDirectory(migratedRoot, serverUrl, 'client')
         expect(await new IdentityStore({ directory: migratedHostDir, role: 'host' }).loadOrCreate('Host')).toEqual(hostIdentity)
@@ -921,7 +965,7 @@ describe('IdentityStore', () => {
       for (const level of levels) await writeFile(join(level, name), 'metadata')
 
       const target = await prepareDefaultIdentityDirectory({ env: { DSH_HOME: home } })
-      expect(target).toBe(join(home, 'ds-harness-remote'))
+      expect(target).toBe(join(home, 'remote-session-plugin'))
       for (const level of levels) {
         expect(await readFile(join(level.replace(source, target), name), 'utf8')).toBe('metadata')
       }

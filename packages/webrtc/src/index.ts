@@ -14,7 +14,7 @@ import {
   type RelayPayload,
   type SecureHandshakePayload,
   type TransportStats,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import { BaseTransport } from './transport.js'
 import { fromBase64Url, toBase64Url } from './util.js'
 

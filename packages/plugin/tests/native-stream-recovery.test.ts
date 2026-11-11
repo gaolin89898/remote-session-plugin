@@ -1,6 +1,6 @@
 import { RemoteSnapshotStream, RemoteStream, RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client'
-import { RemoteClientError, type RemoteClientCore } from '@dsh-remote/client-core'
-import type { EventPayload } from '@dsh-remote/protocol'
+import { RemoteClientError, type RemoteClientCore } from '@remote-session-plugin/client-core'
+import type { EventPayload } from '@remote-session-plugin/protocol'
 import { describe, expect, it, vi } from 'vitest'
 import { RemoteTypertGateway } from '../src/remote-typert-gateway.js'
 

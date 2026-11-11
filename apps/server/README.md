@@ -37,7 +37,7 @@ DSH_SERVER_FRAME_ANCESTORS=dsh-app://app,https://harness.example.com
 使用官方发布的最新镜像（`latest`）：
 
 ```text
-ghcr.io/gaolin89898/ds-harness-remote/server:latest
+ghcr.io/gaolin89898/remote-session-plugin/server:latest
 ```
 
 ```bash

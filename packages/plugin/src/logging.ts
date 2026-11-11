@@ -22,7 +22,7 @@ export class SafeLogger {
     const threshold = typeof this.threshold === 'function' ? this.threshold() : this.threshold
     if (levels.indexOf(level) < levels.indexOf(threshold)) return
     const safeFields = fields === undefined ? '' : ` ${JSON.stringify(redact(fields))}`
-    this.sink[level](`[ds-harness-remote] ${message}${safeFields}`)
+    this.sink[level](`[remote-session-plugin] ${message}${safeFields}`)
   }
 }
 

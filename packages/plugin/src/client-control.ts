@@ -1,6 +1,6 @@
 import type { ControlResult } from './control-result.js'
-import { CodexRemoteClient } from '@dsh-remote/client-core'
-import type { PluginRouteCallResult } from '@dsh-remote/protocol'
+import { CodexRemoteClient } from '@remote-session-plugin/client-core'
+import type { PluginRouteCallResult } from '@remote-session-plugin/protocol'
 import type { AcpVirtualWorkspaceView } from './acp/virtual-harness.js'
 import type { HarnessMode } from './harness-target.js'
 import { probeRemoteHostFeatures } from './client-capabilities.js'

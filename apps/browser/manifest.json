@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "DeepSeek Harness Remote",
+  "name": "Remote Session Plugin",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
   "version": "0.5.21",
@@ -8,7 +8,7 @@
     "128": "media/icon.png"
   },
   "action": {
-    "default_title": "DeepSeek Harness Remote",
+    "default_title": "Remote Session Plugin",
     "default_popup": "popup.html",
     "default_icon": {
       "128": "media/icon.png"

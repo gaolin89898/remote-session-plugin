@@ -8,7 +8,7 @@ import { CodexWorkspaceBridge, type RemoteTerminalProcess, type RemoteTerminalSp
 import { TerminalPolicy } from '../src/terminal-policy.js'
 import { RpcError } from '../src/rpc-router.js'
 import type { LocalTypertGateway } from '../src/typert-gateway-contract.js'
-import { MAX_SECURE_MESSAGE_BYTES } from '@dsh-remote/protocol'
+import { MAX_SECURE_MESSAGE_BYTES } from '@remote-session-plugin/protocol'
 
 describe('HarnessRemoteBridge', () => {
   it('forwards reasoning translation startup metadata and preserves native translation outcomes', async () => {
@@ -54,9 +54,9 @@ describe('HarnessRemoteBridge', () => {
 
   it('rejects plugin-management bypasses before native mutation', async () => {
     await runScenarios([
-      { name: 'Remote entry', endpoint: 'pluginManager/setPluginEnabled', args: { id: 'remote', enabled: false }, rows: [{ entryId: 'remote', moduleName: 'ds-harness-remote' }] },
-      { name: 'Remote bundle', endpoint: 'pluginManager/setBundleEnabled', args: { name: 'ds-harness-remote', enabled: false }, rows: [{ name: 'ds-harness-remote', rows: [] }] },
-      { name: 'bundle contains Remote', endpoint: 'pluginManager/setBundleEnabled', args: { name: 'bundle', enabled: true }, rows: [{ name: 'bundle', rows: [{ moduleName: 'ds-harness-remote/client' }] }] },
+      { name: 'Remote entry', endpoint: 'pluginManager/setPluginEnabled', args: { id: 'remote', enabled: false }, rows: [{ entryId: 'remote', moduleName: 'remote-session-plugin' }] },
+      { name: 'Remote bundle', endpoint: 'pluginManager/setBundleEnabled', args: { name: 'remote-session-plugin', enabled: false }, rows: [{ name: 'remote-session-plugin', rows: [] }] },
+      { name: 'bundle contains Remote', endpoint: 'pluginManager/setBundleEnabled', args: { name: 'bundle', enabled: true }, rows: [{ name: 'bundle', rows: [{ moduleName: 'remote-session-plugin/client' }] }] },
       { name: 'protected entry', endpoint: 'pluginManager/setPluginEnabled', args: { id: 'core', enabled: false }, rows: [{ entryId: 'core', moduleName: 'core', readOnlyReason: 'management-required' }] },
       { name: 'unknown entry', endpoint: 'pluginManager/setPluginEnabled', args: { id: 'missing', enabled: true }, rows: [] },
       { name: 'invalid boolean', endpoint: 'pluginManager/setPluginEnabled', args: { id: 'entry', enabled: 'false' }, rows: [] },
@@ -106,8 +106,8 @@ describe('HarnessRemoteBridge', () => {
         ok: true as const,
         value: [
           { name: 'third-party', updatable: true, rows: [{ moduleName: 'third-party' }] },
-          { name: 'ds-harness-remote', updatable: true, rows: [] },
-          { name: 'remote-owned', updatable: true, rows: [{ moduleName: 'ds-harness-remote' }] },
+          { name: 'remote-session-plugin', updatable: true, rows: [] },
+          { name: 'remote-owned', updatable: true, rows: [{ moduleName: 'remote-session-plugin' }] },
           { name: 'static', updatable: false, rows: [{ moduleName: 'static' }] },
           { name: 'protected', updatable: true, readOnlyReason: 'management-required', rows: [] },
         ],
@@ -118,7 +118,7 @@ describe('HarnessRemoteBridge', () => {
       endpoint: 'pluginManager/updateBundle',
       payload: { args: { name: 'third-party', version: '1.1.0' } },
     })).resolves.toEqual({ ok: true, value: { from: '1.0.0', to: '1.1.0' } })
-    await runScenarios(['ds-harness-remote', 'remote-owned', 'static', 'protected', 'missing'].map(name => ({
+    await runScenarios(['remote-session-plugin', 'remote-owned', 'static', 'protected', 'missing'].map(name => ({
       name, run: async () => {
         await expect(bridge.call({
           endpoint: 'pluginManager/updateBundle',

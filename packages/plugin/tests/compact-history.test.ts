@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createRpcRequest } from '@dsh-remote/protocol'
+import { createRpcRequest } from '@remote-session-plugin/protocol'
 import { compactHistory } from '../src/compact-history.js'
 import { RpcRouter } from '../src/rpc-router.js'
 import { CodexPeerBridge } from '../src/codex/peer-bridge.js'

@@ -5,8 +5,8 @@
 # This release ships the browser/Desktop Host surface only. dsh-TUI integration
 # is deferred to a later release, so no terminal-specific entry is inserted.
 - insert:
-    - id: ds-harness-remote
-      name: ds-harness-remote
+    - id: remote-session-plugin
+      name: remote-session-plugin
       inject:
         - webServer
       config:

@@ -1,6 +1,6 @@
 import { AGY_IMAGE_ROOT, stripAgyImageReferences, agyImageReferences, readAgyImage } from './image-store.js'
 import { promises as fs } from 'node:fs'
-import { MAX_AGENT_ACP_TRANSFER_BYTES } from '@dsh-remote/protocol'
+import { MAX_AGENT_ACP_TRANSFER_BYTES } from '@remote-session-plugin/protocol'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'

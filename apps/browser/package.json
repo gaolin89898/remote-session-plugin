@@ -1,13 +1,13 @@
 {
-  "name": "@dsh-remote/browser",
-  "displayName": "DeepSeek Harness Remote",
-  "description": "Browser launcher for DeepSeek Harness Remote: authorize from Web, see online Hosts and open the selected machine.",
+  "name": "@remote-session-plugin/browser",
+  "displayName": "Remote Session Plugin",
+  "description": "Browser launcher for Remote Session Plugin: authorize from Web, see online Hosts and open the selected machine.",
   "version": "0.5.21",
   "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gaolin89898/ds-harness-remote.git",
+    "url": "git+https://github.com/gaolin89898/remote-session-plugin.git",
     "directory": "apps/browser"
   },
   "scripts": {
@@ -16,8 +16,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dsh-remote/crypto": "workspace:*",
-    "@dsh-remote/protocol": "workspace:*",
+    "@remote-session-plugin/crypto": "workspace:*",
+    "@remote-session-plugin/protocol": "workspace:*",
     "lucide": "^0.469.0"
   },
   "devDependencies": {

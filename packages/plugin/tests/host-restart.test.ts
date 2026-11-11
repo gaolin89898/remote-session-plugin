@@ -19,8 +19,8 @@ function linuxInput(overrides: {
 describe('host restart controller', () => {
   it('reads the owning systemd unit from cgroup v1 and v2 layouts', () => {
     expect(systemdUnitFromCgroup('0::/system.slice/dsh-cloud.service')).toBe('dsh-cloud.service')
-    expect(systemdUnitFromCgroup('11:name=systemd:/system.slice/ds-harness-remote-web.service'))
-      .toBe('ds-harness-remote-web.service')
+    expect(systemdUnitFromCgroup('11:name=systemd:/system.slice/remote-session-plugin-web.service'))
+      .toBe('remote-session-plugin-web.service')
     expect(systemdUnitFromCgroup('0::/system.slice/dsh-cloud.service/child')).toBe('dsh-cloud.service')
     // User-scope units and containers have no system-scope owner here.
     expect(systemdUnitFromCgroup('0::/user.slice/user-1000.slice/user@1000.service/app.slice/host.service'))

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, expect, it, vi } from 'vitest';
-import { generateKeyPair } from '@dsh-remote/crypto';
+import { generateKeyPair } from '@remote-session-plugin/crypto';
 import { HostPairing, pairingProof } from '../src/host-pairing.js';
 import { IdentityStore, assertOwnedRemoteStorage } from '../src/identity-store.js';
 import { HostServerApi } from '../src/server-api.js';

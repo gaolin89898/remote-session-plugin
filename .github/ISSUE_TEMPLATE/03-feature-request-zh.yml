@@ -1,5 +1,5 @@
 name: 💡 功能需求 (Feature Request)
-description: 为 ds-harness-remote 提出新特性或体验改进建议
+description: 为 remote-session-plugin 提出新特性或体验改进建议
 title: "[Feature]: "
 labels:
   - enhancement
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        感谢帮助构想 ds-harness-remote 的未来！请从具体的痛点、使用场景或生态联动切入描述需求。
+        感谢帮助构想 remote-session-plugin 的未来！请从具体的痛点、使用场景或生态联动切入描述需求。
 
   - type: dropdown
     id: area

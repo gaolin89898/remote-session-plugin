@@ -104,7 +104,7 @@ Cursor adapter 默认**关闭**。开启前请在 Host 本机完成 `agent login
 `CURSOR_API_KEY`。也可在 Desktop 插件设置中切换开关（立即生效）。
 
 ```yaml
-ds-harness-remote:
+remote-session-plugin:
   cursor:
     enabled: true
     binary: agent   # 或 ~/.local/bin/agent 的绝对路径

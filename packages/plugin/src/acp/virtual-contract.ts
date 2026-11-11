@@ -3,8 +3,8 @@ import type {
   AgentAcpFrameData,
   AgentAcpStreamClosedData,
   AgentAcpStreamOpenParams,
-} from '@dsh-remote/protocol'
-import { ACP_TOOL_CALL_ENDPOINTS } from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
+import { ACP_TOOL_CALL_ENDPOINTS } from '@remote-session-plugin/protocol'
 import type { TypertRpcResult } from '../typert-gateway-contract.js'
 import type { AcpImage } from './image-content.js'
 import type { AcpCatalogBackend, AcpModelSelection } from './virtual-catalog.js'

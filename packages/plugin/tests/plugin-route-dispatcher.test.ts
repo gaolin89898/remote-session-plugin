@@ -43,7 +43,7 @@ describe('Host plugin route carrier', () => {
         name: endpoint,
         run: async () => {
           const payload = endpoint === 'settings/update'
-            ? { args: { ns: 'ds-harness-remote', value: { terminal: { enabled: true } } } }
+            ? { args: { ns: 'remote-session-plugin', value: { terminal: { enabled: true } } } }
             : { args: {} }
           await expect(bridge.call({
             route: `api/${endpoint}`,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { RemoteClientCore } from '@dsh-remote/client-core'
-import { createEvent, encodeMessage, MAX_SECURE_MESSAGE_BYTES, MAX_HARNESS_API_TRANSFER_BYTES, TRANSFER_IDLE_MS, type EventPayload, type HarnessRemoteFrameData } from '@dsh-remote/protocol'
+import type { RemoteClientCore } from '@remote-session-plugin/client-core'
+import { createEvent, encodeMessage, MAX_SECURE_MESSAGE_BYTES, MAX_HARNESS_API_TRANSFER_BYTES, TRANSFER_IDLE_MS, type EventPayload, type HarnessRemoteFrameData } from '@remote-session-plugin/protocol'
 import { HarnessRemoteBridge } from '../src/harness-remote-bridge.js'
 import { RemoteTypertGateway } from '../src/remote-typert-gateway.js'
 import type { LocalTypertGateway } from '../src/typert-gateway-contract.js'

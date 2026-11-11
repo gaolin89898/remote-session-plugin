@@ -1,7 +1,7 @@
 {
   "$schema": "https://dsh.community/schemas/dsh-plugin-0.15.json",
-  "id": "com.r2049.ds-harness-remote",
-  "name": "ds-harness-remote",
+  "id": "com.r2049.remote-session-plugin",
+  "name": "remote-session-plugin",
   "version": "0.6.4",
   "manifestVersion": "0.15",
   "facets": {
@@ -13,6 +13,6 @@
   "subscriptions": [],
   "license": "MIT",
   "source": {
-    "repository": "https://github.com/gaolin89898/ds-harness-remote"
+    "repository": "https://github.com/gaolin89898/remote-session-plugin"
   }
 }

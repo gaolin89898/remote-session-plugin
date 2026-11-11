@@ -1,4 +1,4 @@
-import type { TransportStats } from '@dsh-remote/protocol'
+import type { TransportStats } from '@remote-session-plugin/protocol'
 
 export interface RemoteTransport {
   connect(): Promise<void>

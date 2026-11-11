@@ -4,12 +4,12 @@
 
 ## DSH 插件页在线更新
 
-DSH 0.2.2 起，**从 npm 安装**的 Remote 可在 **扩展 / 插件管理 → ds-harness-remote** 中检查版本并确认更新。更新由 DSH 官方插件管理器执行；支持热更新的宿主会先停止旧版再安装新版，失败或取消时尝试恢复旧版。恢复也可能失败，请以插件页的最终结果为准；宿主要求重启时按提示重启。
+DSH 0.2.2 起，**从 npm 安装**的 Remote 可在 **扩展 / 插件管理 → remote-session-plugin** 中检查版本并确认更新。更新由 DSH 官方插件管理器执行；支持热更新的宿主会先停止旧版再安装新版，失败或取消时尝试恢复旧版。恢复也可能失败，请以插件页的最终结果为准；宿主要求重启时按提示重启。
 
 GitHub、本地目录、`file:` 和 `link:` 安装不会出现官方在线更新入口。要改用 npm，在同一 Desktop 的官方 `dsh` 启动器中执行：
 
 ```sh
-dsh plugin --profile desktop add -w ds-harness-remote@latest
+dsh plugin --profile desktop add -w remote-session-plugin@latest
 ```
 
 Web Host 改用实际启动它的 `dsh`、`DSH_HOME` 和 profile（通常为 `web`）。切换安装来源后按宿主提示重启，再回插件页检查版本；不要删除 profile 或 Remote 凭据目录。
@@ -19,7 +19,7 @@ Remote 侧栏的版本徽标仍是更新提示，点击链接打开发布页；�
 ## 固定设备身份（可选）
 
 Server 把 `deviceId` 和设备公钥绑定在一起。默认身份在首次启动时生成并保存在
-`$DSH_HOME/ds-harness-remote/servers/<server 哈希>/{host,client}/`，之后一直复用；重装插件包不影响它。
+`$DSH_HOME/remote-session-plugin/servers/<server 哈希>/{host,client}/`，之后一直复用；重装插件包不影响它。
 如果部署方式会重建目录（容器换卷、换 `DSH_HOME`、换机器），可以显式固定身份：
 
 - `DSH_REMOTE_DEVICE_ID`：UUID，仅在**还没有 `device.json`** 时用于创建身份；已有身份会忽略它。
@@ -29,8 +29,8 @@ Server 把 `deviceId` 和设备公钥绑定在一起。默认身份在首次启�
 取值来自现有部署：
 
 ```sh
-jq -r .deviceId "$DSH_HOME/ds-harness-remote/servers/<哈希>/host/device.json"
-cat "$DSH_HOME/ds-harness-remote/servers/<哈希>/host/device.key"
+jq -r .deviceId "$DSH_HOME/remote-session-plugin/servers/<哈希>/host/device.json"
+cat "$DSH_HOME/remote-session-plugin/servers/<哈希>/host/device.key"
 ```
 
 注意：
@@ -48,7 +48,7 @@ cat "$DSH_HOME/ds-harness-remote/servers/<哈希>/host/device.key"
 下载并检查脚本后运行。下面的命令让 Token 在 root Shell 中隐藏输入，不写入命令行参数或 shell 历史：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/gaolin89898/ds-harness-remote/main/scripts/install.sh -o install.sh
+curl -fsSL https://raw.githubusercontent.com/gaolin89898/remote-session-plugin/main/scripts/install.sh -o install.sh
 # 检查下载的脚本内容后执行：
 sudo -H bash -c '
   read -r -s -p "一次性 Host 注册 Token: " token; printf "\n"
@@ -61,7 +61,7 @@ sudo -H bash -c '
 脚本执行：
 
 1. 检查已有 `DSH_COMMAND` 或 PATH 中的 DSH；存在则复用，不自动升级它。
-2. 找不到 DSH 时，在 `/opt/ds-harness-remote/runtime.*` 中安装官方 Node.js 24.9.0、DSH 与插件管理所需的私有 pnpm 9.15.4。Node.js 归档按[官方校验清单](https://nodejs.org/dist/v24.9.0/SHASUMS256.txt)中的固定 SHA-256 校验。稳定 launcher 为 `/opt/ds-harness-remote/bin/dsh`，重复运行会复用。
+2. 找不到 DSH 时，在 `/opt/remote-session-plugin/runtime.*` 中安装官方 Node.js 24.9.0、DSH 与插件管理所需的私有 pnpm 9.15.4。Node.js 归档按[官方校验清单](https://nodejs.org/dist/v24.9.0/SHASUMS256.txt)中的固定 SHA-256 校验。稳定 launcher 为 `/opt/remote-session-plugin/bin/dsh`，重复运行会复用。
 3. 使用官方 `dsh plugin` 安装或更新所选 profile 的 Remote，默认 `web` profile 和 npm `latest`。
 4. 传入 Token 时，通过既有 Host 注册码接口兑换并保存设备凭据。Token 不写入日志、服务配置或持久设备凭据字段；不是模型 API Key。
 5. 检查 profile 确认启用了官方 Web Host 入口，配置 systemd **系统服务**，启用开机自启并启动/重启本安装器管理的匹配实例。无需登录或开启 linger。
@@ -75,15 +75,15 @@ sudo -H bash -c '
 默认 profile 的服务：
 
 ```sh
-sudo systemctl status ds-harness-remote-web.service
-sudo systemctl is-enabled ds-harness-remote-web.service
+sudo systemctl status remote-session-plugin-web.service
+sudo systemctl is-enabled remote-session-plugin-web.service
 ```
 
 服务 Web 端口只绑定 `127.0.0.1`。脚本确认的是 systemd 进程状态，不代替客户端上的 Host 在线验收。
 
 ### 重复安装和安全边界
 
-Remote 凭据存于 `$DSH_HOME/ds-harness-remote`（默认 `~/.dsh/ds-harness-remote`）。安装器处理凭据时，以及升级后首次启动时，都会在读取或创建凭据前自动迁移旧 `remote` 目录，无需手动迁移命令或重新配对。
+Remote 凭据存于 `$DSH_HOME/remote-session-plugin`（默认 `~/.dsh/remote-session-plugin`）。安装器处理凭据时，以及升级后首次启动时，都会在读取或创建凭据前自动迁移旧 `remote` 目录，无需手动迁移命令或重新配对。
 
 迁移前校验 Remote 已知目录结构、设备公私钥配对、信任指纹、凭据设备 ID 和 Server scope 哈希，不能只凭目录名认定归属；未知文件或记录不一致时停止迁移。整体移动保留身份、Server 隔离、Token 和信任记录。
 
@@ -104,7 +104,7 @@ Remote 凭据存于 `$DSH_HOME/ds-harness-remote`（默认 `~/.dsh/ds-harness-re
 macOS 使用普通用户：
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/gaolin89898/ds-harness-remote/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/gaolin89898/remote-session-plugin/main/scripts/install.sh | bash
 ```
 
 优先使用 `~/Applications` 或 `/Applications` 的 Desktop 官方 launcher，否则 PATH 中的 `dsh`。两者都有时优先 Desktop；都没有才停止，不安装 Desktop、DSH 或 Node.js，不创建服务。
@@ -114,7 +114,7 @@ Desktop 默认 `desktop` profile，独立 CLI 默认 `web`，可用 `DSH_COMMAND
 Desktop 也可打开 **扩展 / 插件管理**，从 npm 安装：
 
 ```text
-ds-harness-remote@0.6.3
+remote-session-plugin@0.6.3
 ```
 
 普通独立 CLI 不能管理保留的 `desktop` profile，必须使用 Desktop 官方 launcher。
@@ -132,7 +132,7 @@ ds-harness-remote@0.6.3
 | `DSH_VERSION` | Linux 缺少 DSH 时的新安装版本，默认 npm `latest`，不升级已有 DSH |
 | `DSH_REMOTE_REGISTRATION_TOKEN` | 一次性 Host 注册 Token；推荐通过隐藏输入传入 |
 | `DSH_REMOTE_AUTOSTART=0` | Linux 跳过系统服务配置/启动，仍要求 root |
-| `DSH_INSTALL_ROOT` | Linux 私有引导安装根目录，默认 `/opt/ds-harness-remote`，必须是绝对路径 |
+| `DSH_INSTALL_ROOT` | Linux 私有引导安装根目录，默认 `/opt/remote-session-plugin`，必须是绝对路径 |
 | `DSH_SYSTEMD_DIR` | 系统 unit 目录，默认 `/etc/systemd/system`；普通部署不要修改 |
 
 也接受 `bash install.sh --token '<一次性Token>'` 或位置参数，但它们可能出现在进程列表和 shell 历史中。不要使用 shell trace/debug 执行带凭据的命令。Token 无效、过期或已消费时注册明确失败。
@@ -142,13 +142,13 @@ ds-harness-remote@0.6.3
 先停用 Linux 系统服务（按实际 profile 替换 `web`）：
 
 ```sh
-sudo systemctl disable --now ds-harness-remote-web.service
+sudo systemctl disable --now remote-session-plugin-web.service
 ```
 
 然后使用同一 launcher、profile 和 `DSH_HOME` 执行官方插件移除命令，例如新引导安装的默认路径：
 
 ```sh
-sudo -H /opt/ds-harness-remote/bin/dsh plugin --profile web remove -w ds-harness-remote
+sudo -H /opt/remote-session-plugin/bin/dsh plugin --profile web remove -w remote-session-plugin
 ```
 
 Desktop 使用官方插件管理移除。不会自动删除 runtime、profile、设备凭据或服务 unit。Windows 用户仍可使用官方插件管理或已有 Harness 官方命令，但本仓库不再提供 Windows 安装脚本。

@@ -26,7 +26,7 @@ os=$(uname -s)
 if [[ "$os" = Linux ]]; then
   [[ $EUID = 0 ]] || fail 'Linux installation requires root (including with autostart disabled).'
 fi
-DSH_INSTALL_ROOT=${DSH_INSTALL_ROOT:-/opt/ds-harness-remote}
+DSH_INSTALL_ROOT=${DSH_INSTALL_ROOT:-/opt/remote-session-plugin}
 DSH_SYSTEMD_DIR=${DSH_SYSTEMD_DIR:-/etc/systemd/system}
 [[ "$DSH_INSTALL_ROOT" = /* && "$DSH_SYSTEMD_DIR" = /* ]] || fail 'Installation and systemd directories must be absolute.'
 autostart=0
@@ -78,10 +78,10 @@ elif [[ "$os" = Linux ]]; then
   PATH="$runtime/node/bin:$PATH" "$runtime/node/bin/npm" install --prefix "$runtime/harness" --engine-strict "@deepseek-ai/dsh@$version" pnpm@9.15.4
   DSH_COMMAND=$DSH_INSTALL_ROOT/bin/dsh
   [[ ! -e "$DSH_COMMAND" && ! -L "$DSH_COMMAND" ]] || fail 'Refusing to replace an existing runtime wrapper.'
-  { printf '#!/usr/bin/env bash\n# ds-harness-remote managed private runtime\n'; printf 'export PATH=%q:"$PATH"\n' "$runtime/node/bin:$runtime/harness/node_modules/.bin"; printf 'exec %q "$@"\n' "$runtime/harness/node_modules/.bin/dsh"; } > "$DSH_COMMAND"
+  { printf '#!/usr/bin/env bash\n# remote-session-plugin managed private runtime\n'; printf 'export PATH=%q:"$PATH"\n' "$runtime/node/bin:$runtime/harness/node_modules/.bin"; printf 'exec %q "$@"\n' "$runtime/harness/node_modules/.bin/dsh"; } > "$DSH_COMMAND"
   chmod 755 "$DSH_COMMAND"
 else
-  fail "No existing dsh command found. Install via Desktop Extensions / Plugin management (https://github.com/gaolin89898/ds-harness-remote), or enable Desktop's official dsh launcher."
+  fail "No existing dsh command found. Install via Desktop Extensions / Plugin management (https://github.com/gaolin89898/remote-session-plugin), or enable Desktop's official dsh launcher."
 fi
 # plugin exec changes cwd; service ExecStart must also use an absolute executable.
 if [[ "$DSH_COMMAND" != /* ]]; then DSH_COMMAND="$(pwd -P)/$DSH_COMMAND"; fi
@@ -117,20 +117,26 @@ function abort(message) { const error = new Error(message); error.installerSafe 
   const home = fs.realpathSync(path.resolve(process.cwd(), '../..'));
   if (path.basename(process.cwd()) !== profile || path.basename(path.dirname(process.cwd())) !== 'profiles') abort('Unexpected profile working directory');
   process.env.DSH_HOME = home;
-  const unit = `ds-harness-remote-${profile}.service`;
+  const unit = `remote-session-plugin-${profile}.service`;
   const unitPath = path.join(systemdDir, unit);
-  const marker = `# ds-harness-remote managed home=${JSON.stringify(home)}`;
+  const marker = `# remote-session-plugin managed home=${JSON.stringify(home)}`;
   function checkOwner() {
     // A renamed service must not leave our old Host running against the legacy
     // credentials while the new package migrates them. Never stop unknown units.
-    const legacyUnit = `dsh-remote-${profile}.service`;
-    const legacyPath = path.join(systemdDir, legacyUnit);
-    let legacy; try { legacy = fs.lstatSync(legacyPath); } catch(e) { if(e.code !== 'ENOENT') throw e; }
-    if (legacy?.isFile() && !legacy.isSymbolicLink() && fs.readFileSync(legacyPath, 'utf8').split('\n').includes(`# dsh-remote managed home=${JSON.stringify(home)}`)) {
-      const active = spawnSync('systemctl', ['is-active', '--quiet', legacyUnit]);
-      const enabled = spawnSync('systemctl', ['is-enabled', '--quiet', legacyUnit]);
-      if (active.error || enabled.error || ![0, 3, 4].includes(active.status) || ![0, 1, 3, 4].includes(enabled.status)) abort('Could not inspect the old managed Remote service; no migration was attempted');
-      if (active.status === 0 || enabled.status === 0) abort(`Stop and disable the old managed service before upgrading: systemctl disable --now ${legacyUnit}`);
+    const legacyServices = [
+      { unit: `dsh-remote-${profile}.service`, marker: `# dsh-remote managed home=${JSON.stringify(home)}` },
+      { unit: `ds-harness-remote-${profile}.service`, marker: `# ds-harness-remote managed home=${JSON.stringify(home)}` },
+    ];
+    for (const legacyService of legacyServices) {
+      const legacyUnit = legacyService.unit;
+      const legacyPath = path.join(systemdDir, legacyUnit);
+      let legacy; try { legacy = fs.lstatSync(legacyPath); } catch(e) { if(e.code !== 'ENOENT') throw e; }
+      if (legacy?.isFile() && !legacy.isSymbolicLink() && fs.readFileSync(legacyPath, 'utf8').split('\n').includes(legacyService.marker)) {
+        const active = spawnSync('systemctl', ['is-active', '--quiet', legacyUnit]);
+        const enabled = spawnSync('systemctl', ['is-enabled', '--quiet', legacyUnit]);
+        if (active.error || enabled.error || ![0, 3, 4].includes(active.status) || ![0, 1, 3, 4].includes(enabled.status)) abort('Could not inspect the old managed Remote service; no migration was attempted');
+        if (active.status === 0 || enabled.status === 0) abort(`Stop and disable the old managed service before upgrading: systemctl disable --now ${legacyUnit}`);
+      }
     }
     let st; try { st = fs.lstatSync(unitPath); } catch(e) { if(e.code !== 'ENOENT') throw e; }
     if (st && (!st.isFile() || st.isSymbolicLink() || !fs.readFileSync(unitPath, 'utf8').split('\n').includes(marker))) abort('Refusing unmanaged, symlinked or other-home systemd unit; inspect it, stop/disable it and migrate manually, or set DSH_REMOTE_AUTOSTART=0');
@@ -139,7 +145,7 @@ function abort(message) { const error = new Error(message); error.installerSafe 
   }
   if (autostart === '1') checkOwner();
   if (mode === 'owner') return;
-  const pkgPath = req.resolve('ds-harness-remote/package.json');
+  const pkgPath = req.resolve('remote-session-plugin/package.json');
   const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
   const entry = pkg.exports?.['.']?.import || pkg.main;
   if (typeof entry !== 'string') abort('Remote package has no import entry');
@@ -167,7 +173,7 @@ function abort(message) { const error = new Error(message); error.installerSafe 
   walk(tree);
   // The bundle inserts exactly one static Host entry in this release (dsh-TUI
   // integration is deferred, so no complementary terminal row exists).
-  const remotes = entries.filter(e => e.node.name === 'ds-harness-remote' && !e.off && !e.uncertain);
+  const remotes = entries.filter(e => e.node.name === 'remote-session-plugin' && !e.off && !e.uncertain);
   if (remotes.length !== 1) abort('Remote configuration is missing, ambiguous or dynamically enabled');
   const input = remotes[0].node.config || {};
   function staticValue(value) { if(value instanceof Expression) abort('Dynamic Remote configuration is unsupported'); if(value && typeof value === 'object') Object.values(value).forEach(staticValue); }
@@ -244,8 +250,8 @@ NODE
 run_helper() { "$DSH_COMMAND" plugin --profile "$DSH_PROFILE" exec node -e "$helper" "$DSH_COMMAND" "$DSH_PROFILE" "$1" "$autostart" "$DSH_SYSTEMD_DIR"; }
 # Check service ownership before changing packages, then capabilities before redemption.
 if [[ "$autostart" = 1 ]]; then run_helper owner; fi
-say "Installing ds-harness-remote@${REMOTE_VERSION} into profile ${DSH_PROFILE} using ${DSH_COMMAND}"
-"$DSH_COMMAND" plugin --profile "$DSH_PROFILE" add -w "ds-harness-remote@${REMOTE_VERSION}"
+say "Installing remote-session-plugin@${REMOTE_VERSION} into profile ${DSH_PROFILE} using ${DSH_COMMAND}"
+"$DSH_COMMAND" plugin --profile "$DSH_PROFILE" add -w "remote-session-plugin@${REMOTE_VERSION}"
 if [[ "$INTELLIGENT_UI" = 1 ]]; then
   # Same profile as Remote, before any service restart picks up the new bundles.
   say "Installing deepseek-harness-intelligent-ui@${INTELLIGENT_UI_VERSION} into profile ${DSH_PROFILE}"

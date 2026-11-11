@@ -1,5 +1,5 @@
-import { RemoteClientCore, remoteWorkspaceTypeAvailable } from '@dsh-remote/client-core'
-import { MAX_REMOTE_CAPABILITY_ENTRIES, parseRemoteWorkspaceTypes } from '@dsh-remote/protocol'
+import { RemoteClientCore, remoteWorkspaceTypeAvailable } from '@remote-session-plugin/client-core'
+import { MAX_REMOTE_CAPABILITY_ENTRIES, parseRemoteWorkspaceTypes } from '@remote-session-plugin/protocol'
 import type { RemoteHostFeatures } from './client-runtime-contract.js'
 import { ClientModeError, isRecord } from './client-runtime-contract.js'
 

@@ -14,7 +14,7 @@ import {
   type SecureHandshakePayload,
   type RelayPayload,
   type TransportSelectedPayload,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import { ApiError, Store } from './store.js'
 import { Logger, type LogLevel } from './logger.js'
 import { normalizeGatewayOptions, normalizeMaxFramesPerSec, type GatewayTimingOptions } from './config.js'

@@ -37,7 +37,7 @@ export interface HostRestartOptions {
 
 // Matches a system-scope systemd service unit in a cgroup path, e.g.
 // `0::/system.slice/dsh-cloud.service` or
-// `11:name=systemd:/system.slice/ds-harness-remote-web.service`. User-scope
+// `11:name=systemd:/system.slice/remote-session-plugin-web.service`. User-scope
 // units need a different bus (`systemctl --user`) and are rejected instead of
 // being restarted in the wrong scope.
 const SYSTEMD_SERVICE_UNIT = /\/system\.slice\/([A-Za-z0-9:_.@-]+\.service)(?:\/|\s|$)/

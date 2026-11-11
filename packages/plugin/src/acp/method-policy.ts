@@ -1,5 +1,5 @@
-import { ACP_TOOL_CALL_ENDPOINTS, ACP_TOOL_STREAM_ENDPOINTS } from '@dsh-remote/protocol'
-export { ACP_TOOL_CALL_ENDPOINTS, ACP_TOOL_STREAM_ENDPOINTS } from '@dsh-remote/protocol'
+import { ACP_TOOL_CALL_ENDPOINTS, ACP_TOOL_STREAM_ENDPOINTS } from '@remote-session-plugin/protocol'
+export { ACP_TOOL_CALL_ENDPOINTS, ACP_TOOL_STREAM_ENDPOINTS } from '@remote-session-plugin/protocol'
 import { parseAcpImage } from './image-content.js'
 import { z } from 'zod'
 import { RpcError } from '../safe-error.js'

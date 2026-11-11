@@ -1,4 +1,4 @@
-import { RemoteClientError, type RemoteClientCore } from '@dsh-remote/client-core'
+import { RemoteClientError, type RemoteClientCore } from '@remote-session-plugin/client-core'
 import {
   HARNESS_API_TRANSFER_CHUNK_BYTES,
   MAX_HARNESS_API_TRANSFER_BYTES,
@@ -7,7 +7,7 @@ import {
   type HarnessApiTransferReadResult,
   type HarnessRemoteFrameData,
   type HarnessRemoteStreamClosedData,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import { uuidV7 } from './ids.js'
 import {
   canonicalUnaryHistoryKey,

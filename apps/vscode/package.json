@@ -9,12 +9,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gaolin89898/ds-harness-remote.git",
+    "url": "git+https://github.com/gaolin89898/remote-session-plugin.git",
     "directory": "apps/vscode"
   },
-  "homepage": "https://github.com/gaolin89898/ds-harness-remote#readme",
+  "homepage": "https://github.com/gaolin89898/remote-session-plugin#readme",
   "bugs": {
-    "url": "https://github.com/gaolin89898/ds-harness-remote/issues"
+    "url": "https://github.com/gaolin89898/remote-session-plugin/issues"
   },
   "keywords": [
     "deepseek",
@@ -167,10 +167,10 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
-    "@dsh-remote/client-core": "workspace:*",
-    "@dsh-remote/crypto": "workspace:*",
-    "@dsh-remote/protocol": "workspace:*",
-    "@dsh-remote/webrtc": "workspace:*",
+    "@remote-session-plugin/client-core": "workspace:*",
+    "@remote-session-plugin/crypto": "workspace:*",
+    "@remote-session-plugin/protocol": "workspace:*",
+    "@remote-session-plugin/webrtc": "workspace:*",
     "markdown-it": "^14.3.3",
     "qrcode": "^1.5.4",
     "werift": "0.26.0",

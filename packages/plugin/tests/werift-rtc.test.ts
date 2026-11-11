@@ -4,7 +4,7 @@ import type { NetworkInterfaceInfo } from 'node:os'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { RtcDataChannelTransport } from '@dsh-remote/webrtc'
+import { RtcDataChannelTransport } from '@remote-session-plugin/webrtc'
 import { describe, expect, it } from 'vitest'
 import { buildExternalNativeRtcFactory, resolveNativeRtcRequireFrom } from '../src/native-rtc-helper.js'
 import {

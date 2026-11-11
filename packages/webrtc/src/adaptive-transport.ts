@@ -24,7 +24,7 @@ import {
   type TransportStats,
   isHeartbeatTimeoutClose,
   isServerShutdownClose,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import { browserRtcFactory, type RtcIceServer, type RtcPeerConnectionFactory } from './rtc-adapter.js'
 import {
   RtcConnectError,
@@ -823,7 +823,7 @@ export class AdaptiveTransport extends BaseTransport {
 }
 
 function adaptiveControlCloseError(event: CloseEvent): Error {
-  // Close semantics live in @dsh-remote/protocol: the reason string is the
+  // Close semantics live in @remote-session-plugin/protocol: the reason string is the
   // semantic key because deployments disagree on the code (self-hosted Server
   // sends 4009/'server shutdown', the hosted Server closes with
   // 4001/'server shutdown' and reserves 4009 for heartbeat expiry). Only an

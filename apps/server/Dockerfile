@@ -5,25 +5,25 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY apps/server/package.json apps/server/package.json
-RUN pnpm --filter @dsh-remote/server... install --frozen-lockfile --ignore-scripts
+RUN pnpm --filter @remote-session-plugin/server... install --frozen-lockfile --ignore-scripts
 
 COPY packages/protocol/src packages/protocol/src
 COPY packages/protocol/tsconfig.json packages/protocol/tsconfig.json
 COPY apps/server/src apps/server/src
 COPY apps/server/web apps/server/web
 COPY apps/server/tsconfig.json apps/server/tsconfig.json
-RUN pnpm --filter @dsh-remote/protocol build \
-    && pnpm --filter @dsh-remote/server build \
-    && pnpm --filter @dsh-remote/server deploy --prod /out
+RUN pnpm --filter @remote-session-plugin/protocol build \
+    && pnpm --filter @remote-session-plugin/server build \
+    && pnpm --filter @remote-session-plugin/server deploy --prod /out
 
 # Install the compiled workspace package explicitly: runtime must not depend on
 # a deploy/store snapshot taken before protocol was built. Normalize published
 # files too: COPY/cp preserve source modes, including root-readable mode 000
 # files that would otherwise become unreadable after switching to USER node.
-RUN rm -rf /out/node_modules/@dsh-remote/protocol \
-    && mkdir -p /out/node_modules/@dsh-remote/protocol \
-    && cp packages/protocol/package.json /out/node_modules/@dsh-remote/protocol/ \
-    && cp -R packages/protocol/dist /out/node_modules/@dsh-remote/protocol/dist \
+RUN rm -rf /out/node_modules/@remote-session-plugin/protocol \
+    && mkdir -p /out/node_modules/@remote-session-plugin/protocol \
+    && cp packages/protocol/package.json /out/node_modules/@remote-session-plugin/protocol/ \
+    && cp -R packages/protocol/dist /out/node_modules/@remote-session-plugin/protocol/dist \
     && chmod -R a+rX /out
 
 FROM node:22-bookworm-slim AS runtime

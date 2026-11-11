@@ -1,7 +1,7 @@
-import { SerialSend } from '@dsh-remote/webrtc'
-import { NoiseIkSession, createNoisePrologue } from '@dsh-remote/crypto'
-import { SecureMessageCodec, MAX_SECURE_MESSAGE_BYTES } from '@dsh-remote/protocol'
-import type { RemoteTransport, SecureHandshakeTransport } from '@dsh-remote/webrtc'
+import { SerialSend } from '@remote-session-plugin/webrtc'
+import { NoiseIkSession, createNoisePrologue } from '@remote-session-plugin/crypto'
+import { SecureMessageCodec, MAX_SECURE_MESSAGE_BYTES } from '@remote-session-plugin/protocol'
+import type { RemoteTransport, SecureHandshakeTransport } from '@remote-session-plugin/webrtc'
 import type { HostIdentity, TrustedPeer } from './identity-store.js'
 
 /** Client-side Noise IK wrapper used by the local Harness remote-mode runtime. */

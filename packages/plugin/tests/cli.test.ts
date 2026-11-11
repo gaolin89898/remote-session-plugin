@@ -20,7 +20,7 @@ afterEach(async () => {
 
 describe('Remote CLI', () => {
   it('automatically migrates storage before normal CLI commands without an extra migration step', async () => {
-    const dshHome = join(tmpdir(), `ds-harness-remote-cli-migration-${crypto.randomUUID()}`)
+    const dshHome = join(tmpdir(), `remote-session-plugin-cli-migration-${crypto.randomUUID()}`)
     directories.push(dshHome)
     const legacy = join(dshHome, 'remote')
     const original = await new IdentityStore({ directory: legacy }).loadOrCreate('Legacy Host')
@@ -33,7 +33,7 @@ describe('Remote CLI', () => {
     expect(createHostApi).not.toHaveBeenCalled()
     expect(await runCli(['status'], dependencies)).toBe(0)
     expect(await runCli(['status'], dependencies)).toBe(0)
-    expect((await readFile(join(dshHome, 'ds-harness-remote', 'device.key'), 'utf8')).trim()).toBe(original.privateKey)
+    expect((await readFile(join(dshHome, 'remote-session-plugin', 'device.key'), 'utf8')).trim()).toBe(original.privateKey)
     await expect(stat(legacy)).rejects.toMatchObject({ code: 'ENOENT' })
     expect(output.text).not.toContain(original.privateKey)
   })
@@ -87,7 +87,7 @@ describe('Remote CLI', () => {
     expect(output.text).not.toContain('access-token-value')
     expect(errors.text).toBe('')
 
-    const directory = serverStorageDirectory(join(dshHome, 'ds-harness-remote'), 'https://dsh.r2049.cn', 'host')
+    const directory = serverStorageDirectory(join(dshHome, 'remote-session-plugin'), 'https://dsh.r2049.cn', 'host')
     const device = JSON.parse(await readFile(join(directory, 'device.json'), 'utf8')) as { deviceId: string }
     await expect(new ServerCredentialStore(directory).load('https://dsh.r2049.cn', device.deviceId))
       .resolves.toMatchObject({ authorizationMethod: 'account', account: 'host@example.com' })
@@ -187,7 +187,7 @@ describe('Remote CLI', () => {
     const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
     let pending = true
     vi.mocked(rename).mockImplementation((from, to) => {
-      if (pending && from === root && to === join(dshHome, 'ds-harness-remote')) {
+      if (pending && from === root && to === join(dshHome, 'remote-session-plugin')) {
         pending = false
         return Promise.reject(Object.assign(new Error('move unavailable'), { code: 'EACCES' }))
       }
@@ -201,7 +201,7 @@ describe('Remote CLI', () => {
     })).resolves.toBe(0)
 
     expect(await readFile(join(directory, 'server-credentials.json'))).toEqual(credentialBytes)
-    await expect(stat(join(dshHome, 'ds-harness-remote'))).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(stat(join(dshHome, 'remote-session-plugin'))).rejects.toMatchObject({ code: 'ENOENT' })
 
     expect(output.text).toContain('Host control: enabled')
     expect(output.text).toContain('Authorization: logged in (account)')
@@ -236,7 +236,7 @@ describe('Remote CLI', () => {
     await expect(runCli(['reset-identity', 'client'], { env, stdout: output, stderr: errors })).resolves.toBe(0)
     expect(output.text).toContain('Remote client identity was reset')
 
-    const canonicalRoot = join(dshHome, 'ds-harness-remote')
+    const canonicalRoot = join(dshHome, 'remote-session-plugin')
     const hostCanonicalDir = serverStorageDirectory(canonicalRoot, 'https://dsh.r2049.cn', 'host')
     const clientCanonicalDir = serverStorageDirectory(canonicalRoot, 'https://dsh.r2049.cn', 'client')
     const preservedHost = JSON.parse(await readFile(join(hostCanonicalDir, 'device.json'), 'utf8')) as { deviceId: string }

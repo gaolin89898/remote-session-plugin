@@ -1,5 +1,5 @@
-import { RemoteClientCore } from '@dsh-remote/client-core'
-import type { CodexAppFrameData, CodexAppStreamClosedData } from '@dsh-remote/protocol'
+import { RemoteClientCore } from '@remote-session-plugin/client-core'
+import type { CodexAppFrameData, CodexAppStreamClosedData } from '@remote-session-plugin/protocol'
 import type { CodexLoopbackStream, ConnectedRemote, HostAuthorizationControl } from './client-runtime-contract.js'
 import { ClientModeError, isRecord, record, waitForCodexFrames } from './client-runtime-contract.js'
 

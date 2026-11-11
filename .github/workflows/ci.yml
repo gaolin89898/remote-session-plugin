@@ -141,7 +141,7 @@ jobs:
       - name: Upload npm packages
         uses: actions/upload-artifact@v7
         with:
-          name: dsh-remote-packages-${{ github.sha }}
+          name: remote-session-plugin-packages-${{ github.sha }}
           path: artifacts/packages/**/*.tgz
           if-no-files-found: error
           retention-days: 14
@@ -153,14 +153,14 @@ jobs:
         run: |
           mkdir -p artifacts/browser
           cd apps/browser
-          zip -qr "$GITHUB_WORKSPACE/artifacts/browser/dsh-remote-browser-${GITHUB_SHA}.zip" \
+          zip -qr "$GITHUB_WORKSPACE/artifacts/browser/remote-session-plugin-browser-${GITHUB_SHA}.zip" \
             manifest.json popup.html styles.css media _locales dist
 
       - name: Upload browser extension
         uses: actions/upload-artifact@v7
         with:
-          name: dsh-remote-browser-${{ github.sha }}
-          path: artifacts/browser/dsh-remote-browser-${{ github.sha }}.zip
+          name: remote-session-plugin-browser-${{ github.sha }}
+          path: artifacts/browser/remote-session-plugin-browser-${{ github.sha }}.zip
           if-no-files-found: error
           retention-days: 14
 

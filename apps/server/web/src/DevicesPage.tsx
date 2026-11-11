@@ -358,7 +358,7 @@ export function DevicesPage({ account, onSignedOut, embedded = false }: { accoun
             <section className="dx-card">
               <div className="dx-card-head">
                 <strong>会话信息</strong>
-                <a href="https://github.com/gaolin89898/ds-harness-remote" target="_blank" rel="noreferrer" style={{ color: 'var(--dx-accent)', fontSize: 10 }}>
+                <a href="https://github.com/gaolin89898/remote-session-plugin" target="_blank" rel="noreferrer" style={{ color: 'var(--dx-accent)', fontSize: 10 }}>
                   GitHub ↗
                 </a>
               </div>
@@ -375,7 +375,7 @@ export function DevicesPage({ account, onSignedOut, embedded = false }: { accoun
         <div className="dx-note-bar">
           <SafetyCertificateOutlined />
           <span>所有设备会话均在设备间端到端加密，自建服务无法读取内容。</span>
-          <a href="https://github.com/gaolin89898/ds-harness-remote/blob/main/docs/protocol.md" target="_blank" rel="noreferrer">安全模型 →</a>
+          <a href="https://github.com/gaolin89898/remote-session-plugin/blob/main/docs/protocol.md" target="_blank" rel="noreferrer">安全模型 →</a>
         </div>
       </main>
 
@@ -384,9 +384,9 @@ export function DevicesPage({ account, onSignedOut, embedded = false }: { accoun
           <span>© 2025 DSH REMOTE · SELF-HOSTED</span>
           <nav>
             <span className="dx-foot-status"><i />ALL SYSTEMS NORMAL</span>
-            <a href="https://github.com/gaolin89898/ds-harness-remote/blob/main/docs" target="_blank" rel="noreferrer">文档</a>
-            <a href="https://github.com/gaolin89898/ds-harness-remote" target="_blank" rel="noreferrer"><GithubOutlined /> GitHub</a>
-            <a href="https://github.com/gaolin89898/ds-harness-remote/issues" target="_blank" rel="noreferrer">支持</a>
+            <a href="https://github.com/gaolin89898/remote-session-plugin/blob/main/docs" target="_blank" rel="noreferrer">文档</a>
+            <a href="https://github.com/gaolin89898/remote-session-plugin" target="_blank" rel="noreferrer"><GithubOutlined /> GitHub</a>
+            <a href="https://github.com/gaolin89898/remote-session-plugin/issues" target="_blank" rel="noreferrer">支持</a>
           </nav>
         </footer>
       )}

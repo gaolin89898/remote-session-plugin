@@ -9,7 +9,7 @@ import type {
   CodexAppTransferOpenParams,
   CodexAppTransferReadParams,
   CodexAppTransferReadResult,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import {
   CODEX_APP_TRANSFER_CHUNK_BYTES,
   MAX_ACTIVE_TRANSFERS_PER_DIRECTION,
@@ -17,7 +17,7 @@ import {
   MAX_CODEX_APP_TRANSFER_BYTES,
   MAX_SECURE_MESSAGE_BYTES,
   TRANSFER_IDLE_MS,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import { z } from 'zod'
 import type { PeerConnectionContext } from '../connection-controller.js'
 import type { SafeLogger } from '../logging.js'

@@ -1,5 +1,5 @@
-import { generateKeyPair, NoiseIkSession, createNoisePrologue, fromBase64Url, toBase64Url } from '@dsh-remote/crypto'
-import { createControlFrame, createRpcResponse, decodeMessage, encodeMessage, SecureMessageCodec } from '@dsh-remote/protocol'
+import { generateKeyPair, NoiseIkSession, createNoisePrologue, fromBase64Url, toBase64Url } from '@remote-session-plugin/crypto'
+import { createControlFrame, createRpcResponse, decodeMessage, encodeMessage, SecureMessageCodec } from '@remote-session-plugin/protocol'
 import { expect, it, vi } from 'vitest'
 import { runScenarios } from '../../../scripts/test-scenarios.mjs'
 import { ClientModeRuntime } from '../src/client-runtime.js'

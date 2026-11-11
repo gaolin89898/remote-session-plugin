@@ -43,7 +43,7 @@
 ## 阅读路径
 
 - **项目介绍与快速开始**：见[项目 README](../README.md)。
-- **在终端中使用 Remote**：当前版本只提供独立 CLI（`ds-harness-remote login|status|logout`）与浏览器/Desktop Host；dsh-TUI 集成计划在后续版本单独提供。
+- **在终端中使用 Remote**：当前版本只提供独立 CLI（`remote-session-plugin login|status|logout`）与浏览器/Desktop Host；dsh-TUI 集成计划在后续版本单独提供。
 - **安装或使用其他 Plugin 入口**：先读[根 README](../README.md)，再读[插件包说明](../packages/plugin/README.md)。
 - **了解 Codex Remote 的实现边界**：先读[Codex Remote 技术说明](codex-remote.md)，需要实现级字段时再查[协议](protocol.md)。
 - **了解安全与网络边界**：先读[端到端加密](end-to-end-encryption.md)和[网络与传输](network.md)，需要实现级字段时再查[协议](protocol.md)。

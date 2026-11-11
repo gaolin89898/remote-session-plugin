@@ -112,10 +112,10 @@ importers:
 
   apps/browser:
     dependencies:
-      '@dsh-remote/crypto':
+      '@remote-session-plugin/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
-      '@dsh-remote/protocol':
+      '@remote-session-plugin/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       lucide:
@@ -137,7 +137,7 @@ importers:
 
   apps/server:
     dependencies:
-      '@dsh-remote/protocol':
+      '@remote-session-plugin/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
       ws:
@@ -189,16 +189,16 @@ importers:
 
   apps/vscode:
     dependencies:
-      '@dsh-remote/client-core':
+      '@remote-session-plugin/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
-      '@dsh-remote/crypto':
+      '@remote-session-plugin/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
-      '@dsh-remote/protocol':
+      '@remote-session-plugin/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@dsh-remote/webrtc':
+      '@remote-session-plugin/webrtc':
         specifier: workspace:*
         version: link:../../packages/webrtc
       markdown-it:
@@ -248,16 +248,16 @@ importers:
 
   examples/mock-host:
     dependencies:
-      '@dsh-remote/client-core':
+      '@remote-session-plugin/client-core':
         specifier: workspace:*
         version: link:../../packages/client-core
-      '@dsh-remote/crypto':
+      '@remote-session-plugin/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
-      '@dsh-remote/protocol':
+      '@remote-session-plugin/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@dsh-remote/webrtc':
+      '@remote-session-plugin/webrtc':
         specifier: workspace:*
         version: link:../../packages/webrtc
       ws:
@@ -279,10 +279,10 @@ importers:
 
   packages/client-core:
     dependencies:
-      '@dsh-remote/protocol':
+      '@remote-session-plugin/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@dsh-remote/webrtc':
+      '@remote-session-plugin/webrtc':
         specifier: workspace:*
         version: link:../webrtc
     devDependencies:
@@ -403,16 +403,16 @@ importers:
       '@deepseek-ai/dsh-typert-registry':
         specifier: 0.2.1-rc.1
         version: 0.2.1-rc.1(@deepseek-ai/cordis@4.0.5)
-      '@dsh-remote/client-core':
+      '@remote-session-plugin/client-core':
         specifier: workspace:*
         version: link:../client-core
-      '@dsh-remote/crypto':
+      '@remote-session-plugin/crypto':
         specifier: workspace:*
         version: link:../crypto
-      '@dsh-remote/protocol':
+      '@remote-session-plugin/protocol':
         specifier: workspace:*
         version: link:../protocol
-      '@dsh-remote/webrtc':
+      '@remote-session-plugin/webrtc':
         specifier: workspace:*
         version: link:../webrtc
       '@types/qrcode':
@@ -497,7 +497,7 @@ importers:
       '@deepseek-ai/dsh-workspace-changes':
         specifier: 0.2.2-rc.1
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-agent@0.2.2-rc.1(xoajpv4l2wusbg52sx22ngdave))(@deepseek-ai/dsh-fs@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-brand@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-sandbox@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-llm@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))(@deepseek-ai/dsh-session@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-scope@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)))))(@deepseek-ai/dsh-session@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-scope@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)))(@deepseek-ai/dsh-subprocess@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-http-proxy@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)))(@deepseek-ai/dsh-tools@0.2.2-rc.1(lrnjc5zqp5ijhdcnnh6riknbza))
-      ds-harness-remote:
+      remote-session-plugin:
         specifier: workspace:0.6.4
         version: link:../plugin
 
@@ -515,10 +515,10 @@ importers:
       '@deepseek-ai/dsh-client-connection':
         specifier: 0.2.2-rc.1
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-scope@0.2.2-rc.1(@deepseek-ai/cordis@4.1.0))
-      '@dsh-remote/client-core':
+      '@remote-session-plugin/client-core':
         specifier: workspace:*
         version: link:../client-core
-      '@dsh-remote/crypto':
+      '@remote-session-plugin/crypto':
         specifier: workspace:*
         version: link:../crypto
       esbuild:
@@ -530,7 +530,7 @@ importers:
 
   packages/webrtc:
     dependencies:
-      '@dsh-remote/protocol':
+      '@remote-session-plugin/protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:

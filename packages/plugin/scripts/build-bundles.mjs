@@ -63,8 +63,8 @@ await buildBundle({
 })
 
 for (const [moduleId, outfile] of [
-  ['ds-harness-remote', 'client.js'],
-  ['ds-harness-remote', 'client.github.js'],
+  ['remote-session-plugin', 'client.js'],
+  ['remote-session-plugin', 'client.github.js'],
 ]) {
   await buildBundle({
     entryPoints: [join(root, 'src/client.ts')],

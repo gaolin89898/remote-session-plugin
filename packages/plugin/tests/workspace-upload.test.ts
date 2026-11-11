@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SafeLogger } from '../src/logging.js'
-import { createRpcRequest } from '@dsh-remote/protocol'
+import { createRpcRequest } from '@remote-session-plugin/protocol'
 import { WorkspaceUploadHost, WORKSPACE_UPLOAD_BYTES, WORKSPACE_UPLOAD_CHUNK } from '../src/workspace-upload.js'
 import { RpcRouter } from '../src/rpc-router.js'
 

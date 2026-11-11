@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { accountDeviceDescriptorSchema, type AccountDeviceDescriptor } from '@dsh-remote/protocol'
+import { accountDeviceDescriptorSchema, type AccountDeviceDescriptor } from '@remote-session-plugin/protocol'
 import { z } from 'zod'
 
 export class ApiError extends Error {

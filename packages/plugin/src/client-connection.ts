@@ -1,6 +1,6 @@
-import { RemoteClientCore } from '@dsh-remote/client-core'
-import type { RtcPeerConnectionFactory } from '@dsh-remote/webrtc'
-import { AdaptiveTransport } from '@dsh-remote/webrtc'
+import { RemoteClientCore } from '@remote-session-plugin/client-core'
+import type { RtcPeerConnectionFactory } from '@remote-session-plugin/webrtc'
+import { AdaptiveTransport } from '@remote-session-plugin/webrtc'
 import { probeRemoteHostFeatures } from './client-capabilities.js'
 import type {
   ConnectedRemote,

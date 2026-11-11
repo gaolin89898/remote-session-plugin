@@ -5,7 +5,7 @@ import type { Dirent } from 'node:fs'
 import { chmod, lstat, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
-import { fromBase64Url, generateKeyPair } from '@dsh-remote/crypto'
+import { fromBase64Url, generateKeyPair } from '@remote-session-plugin/crypto'
 import { z } from 'zod'
 import { uuidV7 } from './ids.js'
 import { SERVER_CREDENTIALS_QUEUE_MARKER, ServerCredentialStore, ServerCredentialsBusyError, assertRefreshQueueIdle, withDefaultCredentialMigrationGate } from './server-credentials.js'
@@ -93,7 +93,7 @@ export class IdentityStore {
     const env = options.env ?? process.env
     this.env = env
     const dshHome = env.DSH_HOME || join(options.homeDirectory ?? homedir(), '.dsh')
-    this.storageDirectory = options.directory ?? join(dshHome, 'ds-harness-remote')
+    this.storageDirectory = options.directory ?? join(dshHome, 'remote-session-plugin')
     this.defaultOptions = options.directory === undefined ? options : undefined
     this.role = options.role
   }
@@ -336,7 +336,8 @@ export async function prepareDefaultIdentityDirectory(
 }
 
 interface DefaultStoragePaths {
-  source: string
+  /** Previous identity directories of this project, in migration priority order. */
+  legacySources: string[]
   target: string
   lockDirectory: string
 }
@@ -347,19 +348,24 @@ async function withDefaultStorageTransaction<T>(
 ): Promise<T> {
   const env = options.env ?? process.env
   const home = env.DSH_HOME || join(options.homeDirectory ?? homedir(), '.dsh')
-  const source = join(home, 'remote')
-  const target = join(home, 'ds-harness-remote')
+  // Previous identity directories of this project keep migrating into the
+  // current root; `remote` predates the first rename, `ds-harness-remote` the second.
+  const legacySources = [join(home, 'remote'), join(home, 'ds-harness-remote')]
+  const target = join(home, 'remote-session-plugin')
   await mkdir(home, { recursive: true, mode: 0o700 })
   // Kept outside the renamed tree so competing new-version migrators share one lock.
   const lockDirectory = join(home, '.ds-harness-remote-migration')
   await storageDirectoryStat(lockDirectory)
   await ensureDirectory(lockDirectory)
   return withIdentityLock(lockDirectory, () => withDefaultCredentialMigrationGate(home,
-    () => operation({ source, target, lockDirectory })))
+    () => operation({ legacySources, target, lockDirectory })))
 }
 
-async function prepareDefaultIdentityDirectoryLocked({ source, target, lockDirectory }: DefaultStoragePaths): Promise<string> {
-    const old = await storageDirectoryStat(source)
+async function prepareDefaultIdentityDirectoryLocked({ legacySources, target, lockDirectory }: DefaultStoragePaths): Promise<string> {
+    const legacyStats = await Promise.all(legacySources.map(storageDirectoryStat))
+    const legacyRoots = legacySources
+      .map((source, index) => ({ source, stat: legacyStats[index] }))
+      .filter((entry): entry is { source: string; stat: BigIntStats } => entry.stat !== undefined)
     const current = await storageDirectoryStat(target)
     const pinPath = join(lockDirectory, 'legacy-root.json')
     const pinMetadata = await lstat(pinPath).catch(error => {
@@ -378,7 +384,12 @@ async function prepareDefaultIdentityDirectoryLocked({ source, target, lockDirec
         throw new IdentityInvalidError('Remote storage fallback record is invalid; no credentials were changed.', 'STORAGE_CONFLICT')
       }
     }
-    if (old !== undefined) {
+    if (legacyRoots.length > 1) {
+      throw new IdentityInvalidError('Multiple legacy Remote storage directories exist; stop all Harness instances and resolve them manually. No credentials were overwritten.', 'STORAGE_CONFLICT')
+    }
+    if (legacyRoots.length === 1) {
+      const legacy = legacyRoots[0]!
+      const source = legacy.source
       if (current !== undefined) {
         throw new IdentityInvalidError('Both Remote storage directories exist; stop all Harness instances and resolve them manually. No credentials were overwritten.', 'STORAGE_CONFLICT')
       }
@@ -387,7 +398,7 @@ async function prepareDefaultIdentityDirectoryLocked({ source, target, lockDirec
       // Persist the choice across processes. A later installer/CLI must not move
       // storage out from under a Host that is already using the fallback.
       if (pin !== undefined) {
-        if (pin.dev !== old.dev || pin.ino !== old.ino) {
+        if (pin.dev !== legacy.stat.dev || pin.ino !== legacy.stat.ino) {
           throw new IdentityInvalidError('Legacy Remote storage changed after fallback; inspect it before reconnecting.', 'STORAGE_CONFLICT')
         }
         return source
@@ -400,15 +411,15 @@ async function prepareDefaultIdentityDirectoryLocked({ source, target, lockDirec
         const remaining = await storageDirectoryStat(source)
         // A failed move is compatible only if the same verified tree still exists
         // and no destination appeared. Never fall back from an ambiguous outcome.
-        if (remaining === undefined || remaining.dev !== old.dev || remaining.ino !== old.ino || await storageDirectoryStat(target) !== undefined) throw error
+        if (remaining === undefined || remaining.dev !== legacy.stat.dev || remaining.ino !== legacy.stat.ino || await storageDirectoryStat(target) !== undefined) throw error
         await assertOwnedRemoteStorage(source)
         await assertStorageIdle(source)
         // If the fallback choice cannot be recorded, stop rather than risk
         // another process moving a directory this process starts using.
         await atomicJsonWrite(pinPath, {
           schemaVersion: 1,
-          dev: serializeStatId(old.dev),
-          ino: serializeStatId(old.ino),
+          dev: serializeStatId(legacy.stat.dev),
+          ino: serializeStatId(legacy.stat.ino),
         }, 0o600)
         return source
       }
@@ -421,10 +432,11 @@ async function prepareDefaultIdentityDirectoryLocked({ source, target, lockDirec
 
 /**
  * Reset the selected role identities and credentials in either an explicit
- * storage root or the default `$DSH_HOME` root. When legacy `<DSH_HOME>/remote`
- * could not be migrated only because one of its owned role identities was
- * corrupt, resetting that role repairs the legacy tree first and then completes
- * the standard migration without creating a conflicting second root.
+ * storage root or the default `$DSH_HOME` root. When a legacy
+ * `<DSH_HOME>/remote` or `<DSH_HOME>/ds-harness-remote` root could not be
+ * migrated only because one of its owned role identities was corrupt, resetting
+ * that role repairs the legacy tree first and then completes the standard
+ * migration without creating a conflicting second root.
  */
 export async function resetDefaultIdentityRoles(
   roles: readonly RemoteDeviceRole[],
@@ -461,10 +473,13 @@ export async function resetDefaultIdentityRoles(
       return root
     } catch (error) {
       if (!(error instanceof IdentityInvalidError) || error.code !== 'IDENTITY_INVALID') throw error
-      const [old, current] = await Promise.all([storageDirectoryStat(paths.source), storageDirectoryStat(paths.target)])
-      if (old === undefined || current !== undefined) throw error
-      await assertStorageIdle(paths.source)
-      await resetRolesInRoot(paths.source)
+      const legacyStats = await Promise.all(paths.legacySources.map(storageDirectoryStat))
+      const legacyRoots = paths.legacySources.filter((_, index) => legacyStats[index] !== undefined)
+      const current = await storageDirectoryStat(paths.target)
+      if (legacyRoots.length !== 1 || current !== undefined) throw error
+      const source = legacyRoots[0]!
+      await assertStorageIdle(source)
+      await resetRolesInRoot(source)
       return prepareDefaultIdentityDirectoryLocked(paths)
     }
   })

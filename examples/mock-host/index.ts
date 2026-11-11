@@ -6,7 +6,7 @@ import {
   fromBase64Url,
   generateKeyPair,
   toBase64Url,
-} from '@dsh-remote/crypto'
+} from '@remote-session-plugin/crypto'
 import {
   PROTOCOL_VERSION,
   createControlFrame,
@@ -23,7 +23,7 @@ import {
   type RpcErrorPayload,
   type RpcRequestPayload,
   type SecureHandshakePayload,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 
 const server = process.env.DSH_REMOTE_SERVER ?? 'ws://127.0.0.1:8080/ws/v1/connect'
 const deviceId = process.env.DSH_REMOTE_DEVICE_ID ?? randomUUID()

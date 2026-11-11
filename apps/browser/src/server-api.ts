@@ -2,7 +2,7 @@ import {
   browserAuthorizationExchangeResponseSchema,
   deviceTokenPairSchema,
   type DeviceTokenPair as TokenPair,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import type { Credentials, DeviceIdentity, RemoteHost } from './types.js'
 
 const CLIENT_VERSION = '0.5.21'

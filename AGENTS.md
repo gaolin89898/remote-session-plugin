@@ -1,5 +1,46 @@
 # Repository Guide for Agents
 
+## Project rename to remote-session-plugin (2026-11-11)
+
+项目按用户要求从 `ds-harness-remote` 改名（2026-11-06 之前的名字为 `dsh-remote`/旧 loader
+名 `@dsh-remote/plugin`）为 `remote-session-plugin`：
+
+- 身份链：npm 包名与 CLI bin（shim 改为 `packages/plugin/bin/remote-session-plugin.js`）、
+  DSH 插件 id `com.r2049.remote-session-plugin`、cordis patch entry、settings/locale
+  命名空间、loopback 控制路由 `/remote-session-plugin`、日志前缀 `[remote-session-plugin]`、
+  CLI usage 文案、update-check dist-tag URL、systemd 单元 `remote-session-plugin-<profile>.service`
+  与安装根 `/opt/remote-session-plugin`、显示名统一 "Remote Session Plugin"。
+- 内部 workspace scope `@dsh-remote/*` → `@remote-session-plugin/*`（7 个包、全部 import、
+  Dockerfile、两个 bundle 守卫正则；scope 包不发布 npm）。
+- 凭据根默认目录改为 `$DSH_HOME/remote-session-plugin`（默认 `~/.dsh/remote-session-plugin`）。
+  `prepareDefaultIdentityDirectory` 推广为多来源链迁移：legacy 根 `{remote, ds-harness-remote}`
+  经归属校验后原子 rename 到新目标，多个 legacy 根并存 fail closed；fallback pin
+  （`.ds-harness-remote-migration/legacy-root.json`）按 dev/ino 与现存 legacy 根匹配，schema 不变；
+  `defaultMigrationGate` 根名匹配加入新名。跨版本共享锁/闸门目录
+  `.ds-harness-remote-migration/` 名称保持不变。
+- 保留兼容边界：旧凭据根识别、settings 写保护与 pluginManager inventory 正则的三个命名空间
+  （新名 + `ds-harness-remote` + `dsh-remote`）、`@dsh-remote/plugin` loader 禁用集，并新增自旧名
+  `ds-harness-remote` 条目的启动自动禁用（防旧安装双跑）；`DSH_REMOTE_*` 环境变量族、
+  `apps/server` refresh token HMAC 域字符串 `ds-harness-remote/refresh/v1`、协议 fixture 格式
+  标识、双激活守卫 token、VS Code publisher 与 `dshRemote.*` 命令 id 均不变。
+  docs/CHANGELOG 与 AGENTS 历史小节的旧名不回改。
+- 文档与 CI：README/docs/AGENTS 结构小节、issue 模板、release/ci 工作流、server web 品牌
+  与 REPOSITORY 常量指向 `github.com/gaolin89898/remote-session-plugin`；GitHub 仓库改名与
+  已部署设备重装（新插件 id、重填服务器地址）由用户执行，凭据目录在设备首启时自动迁移，
+  旧版本进程不识别迁移后的新目录（降级会创建新设备身份）。
+
+验证：`pnpm install` 重新生成 lockfile；`pnpm -r check`、共享包与 Plugin 生产 build、
+tui-plugin build 通过；两次重建的 `dist/index.js` + `client.github.js` SHA-256 一致
+（097b508e… / 8e1ba163…），`verify-dsh-plugin.mjs` 与 tui-plugin `verify-bundle.mjs`、
+`git diff --check` 通过。测试：Plugin 76 文件 / 647 tests，638 passed / 6 failed / 3 skipped
+（新增 1 条多来源链式迁移契约测试，覆盖 previous-root / both-legacy / fallback-pin /
+fresh-install 四场景）；6 个失败中 codex-domain ×2（路径假设）、werift ×2（lan 分类/原生
+后端）、workspace-upload（rename EPERM）为本机已记录基线，client-runtime hydration ×1 为
+并发时序 flake（单独重跑 22/22 通过）；本机全局 `DSH_REMOTE_HOST/CLIENT_DEVICE_ID/KEY`
+环境变量会钉住测试身份（identity-store/plugin-lifecycle 各 1 项假失败），清除后复验通过，
+与本次改动无关。Server 65 / VS Code 8 / Browser 1 tests 全过。未做真实 Desktop、
+dsh-cloud 下发或跨设备 E2E；升级/降级前停止所有 Harness 进程的要求不变。
+
 ## Restart UX, picker redesign and account menu (2026-11-11)
 
 在 Host restart 功能之上完成四项 Remote 客户端界面改动：
@@ -464,7 +505,7 @@ docs/
 仓库根包同时是 DSH Desktop 的 GitHub 安装边界：根 `package.json` 必须保留
 `dsh.bundle.patch`、Host/Client exports、CLI bin 和 `cordis.patch.yml`；GitHub 默认禁用
 构建脚本，所以根 `index.js`、`packages/plugin/dist/index.js`、`client.github.js` 与
-`packages/plugin/bin/ds-harness-remote.js` 是需要提交的发布入口。
+`packages/plugin/bin/remote-session-plugin.js` 是需要提交的发布入口。
 
 根包不标记 `private: true`，兼容仅读取根清单、遇到 private 就跳过 npm 查询的插件索引。
 根包与 npm 包保持相同 name/version，但安装入口布局不同；npm 发布仍只能由 release
@@ -520,18 +561,18 @@ NODE_ENV=production pnpm --workspace-concurrency=1 -r build
 常用命令：
 
 ```bash
-pnpm --filter ds-harness-remote build
-pnpm --filter ds-harness-remote check
-DSH_REMOTE_SERVER=ws://127.0.0.1:8080/ws/v1/connect pnpm --filter @dsh-remote/mock-host dev
+pnpm --filter remote-session-plugin build
+pnpm --filter remote-session-plugin check
+DSH_REMOTE_SERVER=ws://127.0.0.1:8080/ws/v1/connect pnpm --filter @remote-session-plugin/mock-host dev
 ```
 
 开源自部署 Server 的独立验证命令：
 
 ```bash
-pnpm --filter @dsh-remote/protocol build
-pnpm --filter @dsh-remote/server check
-pnpm --filter @dsh-remote/server test
-pnpm --filter @dsh-remote/server build
+pnpm --filter @remote-session-plugin/protocol build
+pnpm --filter @remote-session-plugin/server check
+pnpm --filter @remote-session-plugin/server test
+pnpm --filter @remote-session-plugin/server build
 ```
 
 本地启动、环境变量与 Docker 部署见 `apps/server/README.md`。Server 设备凭据数据和 `.env` 不得提交。

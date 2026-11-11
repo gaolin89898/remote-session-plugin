@@ -31,8 +31,8 @@
       name: '@deepseek-ai/dsh-workspace-changes'
     - id: api-remotes
       name: '@deepseek-ai/dsh-api-remotes'
-    - id: ds-harness-remote-tui
-      name: ds-harness-remote-tui
+    - id: remote-session-plugin-tui
+      name: remote-session-plugin-tui
       inject: [settings, connection]
       config:
         enabled: true

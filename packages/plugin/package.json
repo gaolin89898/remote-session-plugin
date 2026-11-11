@@ -1,5 +1,5 @@
 {
-  "name": "ds-harness-remote",
+  "name": "remote-session-plugin",
   "version": "0.6.4",
   "description": "P2P-based, end-to-end encrypted remote access to DeepSeek Harness, CodeX, Claude Code, Pi, and other workspaces from web and mobile clients.",
   "keywords": [
@@ -12,14 +12,14 @@
     "end-to-end-encryption",
     "webrtc"
   ],
-  "homepage": "https://github.com/gaolin89898/ds-harness-remote#readme",
+  "homepage": "https://github.com/gaolin89898/remote-session-plugin#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gaolin89898/ds-harness-remote.git",
+    "url": "git+https://github.com/gaolin89898/remote-session-plugin.git",
     "directory": "packages/plugin"
   },
   "bugs": {
-    "url": "https://github.com/gaolin89898/ds-harness-remote/issues"
+    "url": "https://github.com/gaolin89898/remote-session-plugin/issues"
   },
   "author": "gl <3289149570@qq.com>",
   "license": "MIT",
@@ -30,7 +30,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "ds-harness-remote": "./bin/ds-harness-remote.js"
+    "remote-session-plugin": "./bin/remote-session-plugin.js"
   },
   "types": "./public.d.ts",
   "exports": {
@@ -154,10 +154,10 @@
     "@deepseek-ai/dsh-scope": "0.2.1-rc.1",
     "@deepseek-ai/dsh-session": "0.2.1-rc.1",
     "@deepseek-ai/dsh-settings": "0.2.1-rc.1",
-    "@dsh-remote/client-core": "workspace:*",
-    "@dsh-remote/crypto": "workspace:*",
-    "@dsh-remote/protocol": "workspace:*",
-    "@dsh-remote/webrtc": "workspace:*",
+    "@remote-session-plugin/client-core": "workspace:*",
+    "@remote-session-plugin/crypto": "workspace:*",
+    "@remote-session-plugin/protocol": "workspace:*",
+    "@remote-session-plugin/webrtc": "workspace:*",
     "@types/qrcode": "^1.5.5",
     "esbuild": "^0.25.0",
     "typescript": "^5.7.3",

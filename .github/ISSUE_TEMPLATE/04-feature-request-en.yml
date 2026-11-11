@@ -1,5 +1,5 @@
 name: 💡 Feature request
-description: Propose a new feature or improvement for ds-harness-remote
+description: Propose a new feature or improvement for remote-session-plugin
 title: "[Feature]: "
 labels:
   - enhancement
@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping shape ds-harness-remote! Start with the problem and desired outcome; a complete implementation design is not required.
+        Thanks for helping shape remote-session-plugin! Start with the problem and desired outcome; a complete implementation design is not required.
 
   - type: dropdown
     id: area
@@ -68,7 +68,7 @@ body:
       options:
         - label: I searched existing issues and PRs and did not find a duplicate request.
           required: true
-        - label: This request concerns the ds-harness-remote project scope or supported companion integrations.
+        - label: This request concerns the remote-session-plugin project scope or supported companion integrations.
           required: true
         - label: I removed credentials, prompts, and sensitive information.
           required: true

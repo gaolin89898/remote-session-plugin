@@ -1,4 +1,4 @@
-import type { TransportStats } from '@dsh-remote/protocol'
+import type { TransportStats } from '@remote-session-plugin/protocol'
 import {
   RTC_DATA_CHANNEL_LABEL,
   RTC_DATA_CHANNEL_OPTIONS,

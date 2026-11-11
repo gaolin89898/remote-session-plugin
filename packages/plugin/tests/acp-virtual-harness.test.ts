@@ -7,7 +7,7 @@ import {
   type AcpClientLike,
 } from '../src/acp/virtual-harness.js'
 import { AcpSessionHistoryCache } from '../src/session-history-cache.js'
-import type { AcpSessionArchivedData, AgentAcpFrameData } from '@dsh-remote/protocol'
+import type { AcpSessionArchivedData, AgentAcpFrameData } from '@remote-session-plugin/protocol'
 
 type AgentAcpClientLike = AcpClientLike
 
@@ -710,7 +710,7 @@ describe('AcpVirtualHarness', () => {
           }
 
           const target = new AcpVirtualHarness(client, { deviceId: 'host-1', name: 'Host' }, 'antigravity')
-          const workspaceId = acpCwdWorkspaceId('/var/lib/dsh/workspace/ds-harness-remote', 'antigravity')
+          const workspaceId = acpCwdWorkspaceId('/var/lib/dsh/workspace/remote-session-plugin', 'antigravity')
           const ws = await target.selectWorkspace(workspaceId)
           expect(client.listSessions).toHaveBeenCalled()
           expect(ws.sessionIds).toContain('acp:remote-conv-1')

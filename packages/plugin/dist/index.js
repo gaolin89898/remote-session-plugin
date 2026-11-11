@@ -82275,7 +82275,7 @@ function awaitWithAbort(promise2, signal) {
 }
 
 // packages/plugin/src/control-route.ts
-var CONTROL_RPC_PREFIX = "/ds-harness-remote";
+var CONTROL_RPC_PREFIX = "/remote-session-plugin";
 var STATUS_STREAM_ENDPOINT = "status.events";
 var STATUS_STREAM_PATH = `${CONTROL_RPC_PREFIX}/${STATUS_STREAM_ENDPOINT}`;
 var ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/;
@@ -83930,7 +83930,7 @@ function defaultMigrationGate(directory) {
   const parts = directory.split(sep);
   let rootIndex = -1;
   for (let index = parts.length - 1; index >= 0; index--) {
-    if ((parts[index] === "remote" || parts[index] === "ds-harness-remote") && (index === parts.length - 1 || parts[index + 1] === "servers")) {
+    if ((parts[index] === "remote" || parts[index] === "ds-harness-remote" || parts[index] === "remote-session-plugin") && (index === parts.length - 1 || parts[index + 1] === "servers")) {
       rootIndex = index;
       break;
     }
@@ -88556,7 +88556,7 @@ var IdentityStore = class {
     const env = options.env ?? process.env;
     this.env = env;
     const dshHome = env.DSH_HOME || join5(options.homeDirectory ?? homedir2(), ".dsh");
-    this.storageDirectory = options.directory ?? join5(dshHome, "ds-harness-remote");
+    this.storageDirectory = options.directory ?? join5(dshHome, "remote-session-plugin");
     this.defaultOptions = options.directory === void 0 ? options : void 0;
     this.role = options.role;
   }
@@ -88753,19 +88753,20 @@ async function prepareDefaultIdentityDirectory(options = {}) {
 async function withDefaultStorageTransaction(options, operation) {
   const env = options.env ?? process.env;
   const home = env.DSH_HOME || join5(options.homeDirectory ?? homedir2(), ".dsh");
-  const source = join5(home, "remote");
-  const target3 = join5(home, "ds-harness-remote");
+  const legacySources = [join5(home, "remote"), join5(home, "ds-harness-remote")];
+  const target3 = join5(home, "remote-session-plugin");
   await mkdir3(home, { recursive: true, mode: 448 });
   const lockDirectory = join5(home, ".ds-harness-remote-migration");
   await storageDirectoryStat(lockDirectory);
   await ensureDirectory(lockDirectory);
   return withIdentityLock(lockDirectory, () => withDefaultCredentialMigrationGate(
     home,
-    () => operation({ source, target: target3, lockDirectory })
+    () => operation({ legacySources, target: target3, lockDirectory })
   ));
 }
-async function prepareDefaultIdentityDirectoryLocked({ source, target: target3, lockDirectory }) {
-  const old = await storageDirectoryStat(source);
+async function prepareDefaultIdentityDirectoryLocked({ legacySources, target: target3, lockDirectory }) {
+  const legacyStats = await Promise.all(legacySources.map(storageDirectoryStat));
+  const legacyRoots = legacySources.map((source, index) => ({ source, stat: legacyStats[index] })).filter((entry) => entry.stat !== void 0);
   const current = await storageDirectoryStat(target3);
   const pinPath = join5(lockDirectory, "legacy-root.json");
   const pinMetadata = await lstat(pinPath).catch((error62) => {
@@ -88784,14 +88785,19 @@ async function prepareDefaultIdentityDirectoryLocked({ source, target: target3, 
       throw new IdentityInvalidError("Remote storage fallback record is invalid; no credentials were changed.", "STORAGE_CONFLICT");
     }
   }
-  if (old !== void 0) {
+  if (legacyRoots.length > 1) {
+    throw new IdentityInvalidError("Multiple legacy Remote storage directories exist; stop all Harness instances and resolve them manually. No credentials were overwritten.", "STORAGE_CONFLICT");
+  }
+  if (legacyRoots.length === 1) {
+    const legacy = legacyRoots[0];
+    const source = legacy.source;
     if (current !== void 0) {
       throw new IdentityInvalidError("Both Remote storage directories exist; stop all Harness instances and resolve them manually. No credentials were overwritten.", "STORAGE_CONFLICT");
     }
     await assertOwnedRemoteStorage(source);
     await assertStorageIdle(source);
     if (pin !== void 0) {
-      if (pin.dev !== old.dev || pin.ino !== old.ino) {
+      if (pin.dev !== legacy.stat.dev || pin.ino !== legacy.stat.ino) {
         throw new IdentityInvalidError("Legacy Remote storage changed after fallback; inspect it before reconnecting.", "STORAGE_CONFLICT");
       }
       return source;
@@ -88801,13 +88807,13 @@ async function prepareDefaultIdentityDirectoryLocked({ source, target: target3, 
     } catch (error62) {
       if (!isNodeError(error62) || !["EACCES", "EPERM", "EBUSY", "EXDEV", "EROFS", "EEXIST", "ENOTEMPTY", "ENOSPC", "EDQUOT"].includes(error62.code ?? "")) throw error62;
       const remaining = await storageDirectoryStat(source);
-      if (remaining === void 0 || remaining.dev !== old.dev || remaining.ino !== old.ino || await storageDirectoryStat(target3) !== void 0) throw error62;
+      if (remaining === void 0 || remaining.dev !== legacy.stat.dev || remaining.ino !== legacy.stat.ino || await storageDirectoryStat(target3) !== void 0) throw error62;
       await assertOwnedRemoteStorage(source);
       await assertStorageIdle(source);
       await atomicJsonWrite(pinPath, {
         schemaVersion: 1,
-        dev: serializeStatId(old.dev),
-        ino: serializeStatId(old.ino)
+        dev: serializeStatId(legacy.stat.dev),
+        ino: serializeStatId(legacy.stat.ino)
       }, 384);
       return source;
     }
@@ -88845,10 +88851,13 @@ async function resetDefaultIdentityRoles(roles, serverUrl, deviceName, options =
       return root2;
     } catch (error62) {
       if (!(error62 instanceof IdentityInvalidError) || error62.code !== "IDENTITY_INVALID") throw error62;
-      const [old, current] = await Promise.all([storageDirectoryStat(paths.source), storageDirectoryStat(paths.target)]);
-      if (old === void 0 || current !== void 0) throw error62;
-      await assertStorageIdle(paths.source);
-      await resetRolesInRoot(paths.source);
+      const legacyStats = await Promise.all(paths.legacySources.map(storageDirectoryStat));
+      const legacyRoots = paths.legacySources.filter((_, index) => legacyStats[index] !== void 0);
+      const current = await storageDirectoryStat(paths.target);
+      if (legacyRoots.length !== 1 || current !== void 0) throw error62;
+      const source = legacyRoots[0];
+      await assertStorageIdle(source);
+      await resetRolesInRoot(source);
       return prepareDefaultIdentityDirectoryLocked(paths);
     }
   });
@@ -96135,7 +96144,7 @@ var AcpRemoteGateway = class {
         const defaultCandidates = /* @__PURE__ */ new Set();
         const cwd3 = process.cwd();
         if (cwd3) defaultCandidates.add(cwd3);
-        for (const candidate of ["/var/lib/dsh/workspace/ds-harness-remote", "/srv/dsh-workspace", "/var/lib/dsh/local"]) {
+        for (const candidate of ["/var/lib/dsh/workspace/remote-session-plugin", "/var/lib/dsh/workspace/ds-harness-remote", "/srv/dsh-workspace", "/var/lib/dsh/local"]) {
           try {
             const s = await stat5(candidate);
             if (s.isDirectory()) defaultCandidates.add(candidate);
@@ -96147,7 +96156,7 @@ var AcpRemoteGateway = class {
       const candidates = /* @__PURE__ */ new Set();
       const cwd2 = process.cwd();
       if (cwd2) candidates.add(cwd2);
-      for (const candidate of ["/var/lib/dsh/workspace/ds-harness-remote", "/var/lib/dsh/local"]) {
+      for (const candidate of ["/var/lib/dsh/workspace/remote-session-plugin", "/var/lib/dsh/workspace/ds-harness-remote", "/var/lib/dsh/local"]) {
         try {
           const s = await stat5(candidate);
           if (s.isDirectory()) candidates.add(candidate);
@@ -98247,7 +98256,7 @@ var SafeLogger = class {
     const threshold = typeof this.threshold === "function" ? this.threshold() : this.threshold;
     if (levels.indexOf(level) < levels.indexOf(threshold)) return;
     const safeFields = fields === void 0 ? "" : ` ${JSON.stringify(redact(fields))}`;
-    this.sink[level](`[ds-harness-remote] ${message}${safeFields}`);
+    this.sink[level](`[remote-session-plugin] ${message}${safeFields}`);
   }
 };
 function redact(value, key = "") {
@@ -100915,7 +100924,7 @@ var HarnessRemoteBridge = class {
     if (TERMINAL_STREAMS.has(params.endpoint)) throw new RpcError("METHOD_NOT_ALLOWED", "Use a stream for this terminal endpoint.");
     if (["settings/update", "settings/replace", "settings/mutate"].includes(params.endpoint)) {
       const args = requestArgs(params.payload);
-      if (args.ns === "ds-harness-remote" || args.ns === "dsh-remote") {
+      if (args.ns === "remote-session-plugin" || args.ns === "ds-harness-remote" || args.ns === "dsh-remote") {
         throw new RpcError("PERMISSION_DENIED", "Remote access settings can only be changed locally on the Host.");
       }
     }
@@ -101807,7 +101816,7 @@ function filterSessionListProjections(resultOrEndpoint, maybeResult) {
 }
 function filterRemotePluginInventory(endpoint, result) {
   if (!result.ok) return result;
-  const isRemote = (value) => typeof value === "string" && /^(?:ds-harness-remote|dsh-remote)(?:\/|$)/.test(value);
+  const isRemote = (value) => typeof value === "string" && /^(?:remote-session-plugin|ds-harness-remote|dsh-remote)(?:\/|$)/.test(value);
   const filterEntries = (entries) => entries.filter((entry) => !isRecord22(entry) || !isRemote(entry.moduleName));
   if (endpoint === "pluginManager/listPlugins" && Array.isArray(result.value)) {
     return { ...result, value: filterEntries(result.value) };
@@ -101835,7 +101844,7 @@ function isCompactSnapshot(value) {
   return value !== null && typeof value === "object" && value.type === "snapshot";
 }
 function remoteOwnedBundleRow(row, plugin) {
-  const remoteModule = (value) => typeof value === "string" && /^(?:ds-harness-remote|dsh-remote)(?:\/|$)/.test(value);
+  const remoteModule = (value) => typeof value === "string" && /^(?:remote-session-plugin|ds-harness-remote|dsh-remote)(?:\/|$)/.test(value);
   if (remoteModule(plugin ? row.moduleName : row.name)) return true;
   return !plugin && (!Array.isArray(row.rows) || row.rows.some((value) => !isRecord22(value) || remoteModule(value.moduleName)) || Array.isArray(row.overrides) && row.overrides.some((value) => remoteModule(value)));
 }
@@ -102733,8 +102742,8 @@ function runHmrSafe(run, hmr) {
 
 // packages/plugin/src/update-check.ts
 var DIST_TAG_URLS = [
-  "https://registry.npmjs.org/-/package/ds-harness-remote/dist-tags",
-  "https://registry.npmmirror.com/-/package/ds-harness-remote/dist-tags"
+  "https://registry.npmjs.org/-/package/remote-session-plugin/dist-tags",
+  "https://registry.npmmirror.com/-/package/remote-session-plugin/dist-tags"
 ];
 var FETCH_TIMEOUT_MS = 1e4;
 var RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1e3;
@@ -102984,7 +102993,7 @@ ${helpText()}`);
 }
 async function register(args, runtime) {
   if (args.length !== 1 || args[0] === void 0 || args[0].trim() === "") {
-    throw new CliUsageError("Usage: ds-harness-remote register <server-token>");
+    throw new CliUsageError("Usage: remote-session-plugin register <server-token>");
   }
   const context = await hostContext(runtime);
   await context.api.authorizeHostWithCode(context.identity, args[0]);
@@ -102992,20 +103001,20 @@ async function register(args, runtime) {
   return 0;
 }
 async function login(args, runtime) {
-  if (args.length > 1) throw new CliUsageError("Usage: ds-harness-remote login [provider|list]");
+  if (args.length > 1) throw new CliUsageError("Usage: remote-session-plugin login [provider|list]");
   const context = await hostContext(runtime);
   const providers = (await context.api.oauthProviders()).filter((item) => item.qrStartUrl != null);
   if (args[0] === "list") {
-    write2(runtime.stdout, providers.length === 0 ? "No QR sign-in providers are available.\n" : providers.map((item) => `${item.displayName}: ds-harness-remote login ${item.id}
+    write2(runtime.stdout, providers.length === 0 ? "No QR sign-in providers are available.\n" : providers.map((item) => `${item.displayName}: remote-session-plugin login ${item.id}
 `).join(""));
     return 0;
   }
   const selected = args[0] === void 0 ? providers.find((item) => item.id === "zhihu") ?? providers[0] : providers.find((item) => item.id === args[0]);
-  if (selected === void 0) throw new CliUsageError('OAuth provider unavailable. Run "ds-harness-remote login list" to see available providers.');
+  if (selected === void 0) throw new CliUsageError('OAuth provider unavailable. Run "remote-session-plugin login list" to see available providers.');
   const provider = selected.id;
   const session2 = await context.api.startOAuthQrLogin(provider);
   const qr = await runtime.renderQr(session2.scanUrl);
-  write2(runtime.stdout, `Using ${selected.displayName} QR login. Run "ds-harness-remote login list" for available providers.
+  write2(runtime.stdout, `Using ${selected.displayName} QR login. Run "remote-session-plugin login list" for available providers.
 `);
   write2(runtime.stdout, "Scan this QR code to authorize this Host:\n\n");
   write2(runtime.stdout, `${qr.trimEnd()}
@@ -103040,7 +103049,7 @@ Waiting for authorization...
   return 1;
 }
 async function status(args, runtime) {
-  if (args.length !== 0) throw new CliUsageError("Usage: ds-harness-remote status");
+  if (args.length !== 0) throw new CliUsageError("Usage: remote-session-plugin status");
   const serverUrl = selectedServer();
   const root2 = await prepareDefaultIdentityDirectory({ env: runtime.env });
   const directory = serverStorageDirectory(root2, serverUrl, "host");
@@ -103053,7 +103062,7 @@ async function status(args, runtime) {
     lines.push("Device: not initialized", "Authorization: logged out", "Credential: unavailable");
     write2(runtime.stdout, `${lines.join("\n")}
 
-Run "ds-harness-remote login" to authorize this Host.
+Run "remote-session-plugin login" to authorize this Host.
 `);
     return 0;
   }
@@ -103067,7 +103076,7 @@ Run "ds-harness-remote login" to authorize this Host.
     lines.push("Authorization: logged out", "Credential: unavailable");
     write2(runtime.stdout, `${lines.join("\n")}
 
-Run "ds-harness-remote login" to authorize this Host.
+Run "remote-session-plugin login" to authorize this Host.
 `);
     return 0;
   }
@@ -103090,7 +103099,7 @@ Run "ds-harness-remote login" to authorize this Host.
   }
 }
 async function logout(args, runtime) {
-  if (args.length !== 0) throw new CliUsageError("Usage: ds-harness-remote logout");
+  if (args.length !== 0) throw new CliUsageError("Usage: remote-session-plugin logout");
   const serverUrl = selectedServer();
   const deviceName = runtime.env.DSH_REMOTE_DEVICE_NAME ?? hostname5();
   let root2;
@@ -103138,11 +103147,11 @@ async function logout(args, runtime) {
 }
 async function resetIdentity(args, runtime) {
   if (args.length > 1) {
-    throw new CliUsageError("Usage: ds-harness-remote reset-identity [host|client|all]");
+    throw new CliUsageError("Usage: remote-session-plugin reset-identity [host|client|all]");
   }
   const roleArg = args[0];
   if (roleArg !== void 0 && roleArg !== "host" && roleArg !== "client" && roleArg !== "all") {
-    throw new CliUsageError("Usage: ds-harness-remote reset-identity [host|client|all]");
+    throw new CliUsageError("Usage: remote-session-plugin reset-identity [host|client|all]");
   }
   const serverUrl = selectedServer();
   const deviceName = runtime.env.DSH_REMOTE_DEVICE_NAME ?? hostname5();
@@ -103219,11 +103228,11 @@ function cliErrorMessage(error62) {
 function helpText() {
   return [
     "Usage:",
-    "  ds-harness-remote login [provider|list]",
-    "  ds-harness-remote register <server-token>",
-    "  ds-harness-remote status",
-    "  ds-harness-remote logout",
-    "  ds-harness-remote reset-identity [host|client|all]",
+    "  remote-session-plugin login [provider|list]",
+    "  remote-session-plugin register <server-token>",
+    "  remote-session-plugin status",
+    "  remote-session-plugin logout",
+    "  remote-session-plugin reset-identity [host|client|all]",
     "",
     "login uses an available QR provider (preferring Zhihu). Use login list to see available providers.",
     `The Server is ${DEFAULT_REMOTE_SERVER_URL}.`,
@@ -103293,10 +103302,10 @@ var AcpGateway = class {
 };
 
 // packages/plugin/src/index.ts
-var name = "ds-harness-remote";
-var legacyLoaderModuleNames = /* @__PURE__ */ new Set(["@dsh-remote/plugin"]);
-var pluginSettingsNamespace = "ds-harness-remote";
-var DEFAULT_ENTRY_ID = "ds-harness-remote";
+var name = "remote-session-plugin";
+var legacyLoaderModuleNames = /* @__PURE__ */ new Set(["@dsh-remote/plugin", "ds-harness-remote"]);
+var pluginSettingsNamespace = "remote-session-plugin";
+var DEFAULT_ENTRY_ID = "remote-session-plugin";
 var INCLUDE_ENTRY_PREFIX = "include:";
 function apply(ctx, entry = void 0) {
   const readConfig = () => readEntryConfig(entry);
@@ -103335,7 +103344,7 @@ function apply(ctx, entry = void 0) {
           control.setStartupFailure(storageError, { storageAvailable: false });
         }
         return control.register(connection, webServer);
-      }, "ds-harness-remote pending control");
+      }, "remote-session-plugin pending control");
     };
     const startActiveRuntime = async (activeContext) => {
       await disposePendingControl?.();
@@ -103388,7 +103397,7 @@ async function activate(ctx, readConfig, entryId, requireRemoteEvents = false) {
       if (initialStorageError !== void 0) {
         controlRuntime2.setStartupFailure(initialStorageError, { storageAvailable: false });
       }
-      ctx.effect(() => controlRuntime2.register(connection, webServer), "ds-harness-remote disabled control");
+      ctx.effect(() => controlRuntime2.register(connection, webServer), "remote-session-plugin disabled control");
     }
     return;
   }
@@ -103425,7 +103434,7 @@ async function activate(ctx, readConfig, entryId, requireRemoteEvents = false) {
     const peer = fallbackPeer;
     fallbackPeer = void 0;
     return peer?.dispose?.();
-  }, "ds-harness-remote fallback owner peer");
+  }, "remote-session-plugin fallback owner peer");
   const hostGateway = new TypertGatewaySwitch(nativeTypertGateway, () => fallbackPeer);
   const localTypertGateway = hostGateway.local();
   localTypertGateway.createPeer = () => {
@@ -103601,7 +103610,7 @@ async function activate(ctx, readConfig, entryId, requireRemoteEvents = false) {
       await clientRuntime?.close();
       await runtime?.close();
     };
-  }, "ds-harness-remote lifecycle");
+  }, "remote-session-plugin lifecycle");
   if (config2.remoteTools?.enabled) installRemoteDiscoveryTools(ctx, () => closed || !clientActive ? void 0 : clientRuntime);
 }
 function readEntryConfig(entry) {

@@ -19,8 +19,8 @@ import type {
   RtcPeerConnectionFactory,
   RtcSessionDescriptionInit,
   RtcStats,
-} from '@dsh-remote/webrtc'
-import { summarizeAddress, summarizeIceCandidate } from '@dsh-remote/webrtc'
+} from '@remote-session-plugin/webrtc'
+import { summarizeAddress, summarizeIceCandidate } from '@remote-session-plugin/webrtc'
 
 interface WeriftModule {
   RTCPeerConnection: new (config?: WeriftConfig) => WeriftPeerConnection

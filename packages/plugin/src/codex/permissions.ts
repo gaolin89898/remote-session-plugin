@@ -1,4 +1,4 @@
-import type { CodexPermissionPreset } from '@dsh-remote/protocol'
+import type { CodexPermissionPreset } from '@remote-session-plugin/protocol'
 
 /** Only exact policy pairs can be represented by the Remote permission picker. */
 export function codexPermissionPresetFromResponse(value: unknown): CodexPermissionPreset | undefined {

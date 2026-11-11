@@ -1,13 +1,13 @@
-import { HarnessAlphaClient, RemoteClientCore, probeRemoteHostFeatures } from '@dsh-remote/client-core'
-import { NoiseIkSession, createNoisePrologue } from '@dsh-remote/crypto'
-import { SecureMessageCodec, type HarnessApiCallParams } from '@dsh-remote/protocol'
+import { HarnessAlphaClient, RemoteClientCore, probeRemoteHostFeatures } from '@remote-session-plugin/client-core'
+import { NoiseIkSession, createNoisePrologue } from '@remote-session-plugin/crypto'
+import { SecureMessageCodec, type HarnessApiCallParams } from '@remote-session-plugin/protocol'
 import {
   AdaptiveTransport,
   stunOnlyIceServers,
   type RemoteTransport,
   type RtcIceServer,
   type SecureHandshakeTransport,
-} from '@dsh-remote/webrtc'
+} from '@remote-session-plugin/webrtc'
 import { ServerApi } from './server-api.js'
 import type { ChatMessage, DeviceIdentity, DirectoryListing, HistoryEntry, HostDescriptor, ModelSelection, MuxFrame, RemoteHost, RemoteSession, RemoteWorkspace, SessionModels } from './types.js'
 import { loadNodeRtcFactory } from './werift-rtc.js'

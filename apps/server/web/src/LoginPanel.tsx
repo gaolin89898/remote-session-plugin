@@ -108,7 +108,7 @@ export function LoginPanel({
           <div className="dx-form-top">
             <a href="/"><ArrowLeftOutlined />返回首页</a>
             <div className="dx-form-top-actions">
-              <a href="https://github.com/gaolin89898/ds-harness-remote" target="_blank" rel="noreferrer">
+              <a href="https://github.com/gaolin89898/remote-session-plugin" target="_blank" rel="noreferrer">
                 <GithubOutlined />GitHub
               </a>
             </div>
@@ -187,7 +187,7 @@ export function LoginPanel({
           </p>
 
           <p className="dx-alt-action">
-            还没有账号？<a href="https://github.com/gaolin89898/ds-harness-remote#readme" target="_blank" rel="noreferrer">查看自建指南<ArrowRightOutlined /></a>
+            还没有账号？<a href="https://github.com/gaolin89898/remote-session-plugin#readme" target="_blank" rel="noreferrer">查看自建指南<ArrowRightOutlined /></a>
           </p>
         </div>
 
@@ -195,9 +195,9 @@ export function LoginPanel({
           <div className="dx-form-foot">
             <span>© 2025 DSH REMOTE · SELF-HOSTED</span>
             <nav>
-              <a href="https://github.com/gaolin89898/ds-harness-remote/blob/main/docs" target="_blank" rel="noreferrer">文档</a>
-              <a href="https://github.com/gaolin89898/ds-harness-remote" target="_blank" rel="noreferrer">GitHub</a>
-              <a href="https://github.com/gaolin89898/ds-harness-remote/issues" target="_blank" rel="noreferrer">问题反馈</a>
+              <a href="https://github.com/gaolin89898/remote-session-plugin/blob/main/docs" target="_blank" rel="noreferrer">文档</a>
+              <a href="https://github.com/gaolin89898/remote-session-plugin" target="_blank" rel="noreferrer">GitHub</a>
+              <a href="https://github.com/gaolin89898/remote-session-plugin/issues" target="_blank" rel="noreferrer">问题反馈</a>
             </nav>
           </div>
         )}

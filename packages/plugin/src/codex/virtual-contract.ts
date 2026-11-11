@@ -1,4 +1,4 @@
-import type { CodexPermissionPreset } from '@dsh-remote/protocol'
+import type { CodexPermissionPreset } from '@remote-session-plugin/protocol'
 import type { TypertRpcResult } from '../typert-gateway-contract.js'
 import { isCanonicalBase64 } from './codex-image-codec.js'
 import type { JsonRecord } from './virtual-values.js'

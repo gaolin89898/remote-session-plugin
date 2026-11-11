@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "DS Harness Remote",
+    "title": "Remote Session Plugin",
     "description": "基于 P2P 网络，使用端到端加密远程访问 DeepSeek Harness、CodeX、Claude Code、Pi 等工作区，支持Web和移动端。",
     "detail": "locale/README.md"
   }

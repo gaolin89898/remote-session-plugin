@@ -1,4 +1,4 @@
-import type { CodexPermissionPreset } from '@dsh-remote/protocol'
+import type { CodexPermissionPreset } from '@remote-session-plugin/protocol'
 import type { AcpModelSelection } from './acp/virtual-catalog.js'
 import type { AcpPermissionPreset, NativeEvent as AcpNativeEvent } from './acp/virtual-contract.js'
 import type { CodexModelSelection } from './codex/virtual-catalog.js'

@@ -1,7 +1,7 @@
 import { runScenarios } from '../../../scripts/test-scenarios.mjs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createEvent, createRpcError, createRpcResponse, encodeMessage } from '@dsh-remote/protocol'
-import { BaseTransport } from '@dsh-remote/webrtc'
+import { createEvent, createRpcError, createRpcResponse, encodeMessage } from '@remote-session-plugin/protocol'
+import { BaseTransport } from '@remote-session-plugin/webrtc'
 import {
   CodexRemoteClient,
   HarnessAlphaClient,

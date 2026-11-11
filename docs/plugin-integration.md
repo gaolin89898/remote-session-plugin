@@ -139,7 +139,7 @@ Web token 不进入二维码、手机回调 URL 或日志，并且只能由发�
 
 插件 Remote 登录页在进入授权页面和 Server 切换时重新获取列表，按语言偏好优先选择
 已启用的知乎或 GitHub，其余条目保留服务端顺序，未启用的偏好不会阻挡其他提供商。
-命令行使用 `ds-harness-remote login list` 查看可用条目，
+命令行使用 `remote-session-plugin login list` 查看可用条目，
 随后通过 `login <id>` 登录。未指定 ID 时优先选择可用的知乎，否则选择首个扫码提供商。
 
 新增 OAuth 需要在 Server 实现授权、回调与账号绑定，并在 `app/api/auth.py` 的
@@ -350,7 +350,7 @@ Windows Harness Host 的锁恢复未在本次范围内完成验收。Windows 上
 如需降级到 0.6.3，优先恢复升级前的完整 `$DSH_HOME` 备份。
 没有备份时，先停止全部进程并备份当前 `$DSH_HOME`。
 然后检查每个 `server-credentials.json.refresh-lock*` 文件，确认没有活跃 Holder。
-删除 V2 Marker、Holder 和队列 `.tmp` 文件。将 `$DSH_HOME/ds-harness-remote`
+删除 V2 Marker、Holder 和队列 `.tmp` 文件。将 `$DSH_HOME/remote-session-plugin`
 改名为 `$DSH_HOME/remote`，再安装 0.6.3。不要同时保留两个根目录。
 0.6.3 的凭据 schema 只接受 `account`、`host_registration_code` 和 `owned_device`。
 如凭据使用新字段，保留备份并在 0.6.3 中重新授权。0.6.3 不能直接读取这些凭据。

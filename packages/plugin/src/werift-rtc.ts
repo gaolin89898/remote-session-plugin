@@ -19,9 +19,9 @@ import type {
   RtcPeerConnectionFactory,
   RtcSessionDescriptionInit,
   RtcStats,
-} from '@dsh-remote/webrtc'
-import { summarizeAddress, summarizeIceCandidate } from '@dsh-remote/webrtc'
-import { normalizeSdpMLineIndex } from '@dsh-remote/protocol'
+} from '@remote-session-plugin/webrtc'
+import { summarizeAddress, summarizeIceCandidate } from '@remote-session-plugin/webrtc'
+import { normalizeSdpMLineIndex } from '@remote-session-plugin/protocol'
 import { loadExternalNativeRtcFactory } from './native-rtc-helper.js'
 
 interface WeriftModule {

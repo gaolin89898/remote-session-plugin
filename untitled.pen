@@ -1823,7 +1823,7 @@
                       "fill": "#F3F6FB",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "dsh plugin --profile web add ds-harness-remote@0.6.4",
+                      "content": "dsh plugin --profile web add remote-session-plugin@0.6.4",
                       "lineHeight": 1.7,
                       "fontFamily": "$font-mono",
                       "fontSize": 12.5,

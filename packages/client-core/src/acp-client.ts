@@ -8,11 +8,11 @@ import type {
   AgentAcpTransferCommitResult,
   AgentAcpTransferReadResult,
   AcpSessionArchivedData,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import {
   AGENT_ACP_TRANSFER_CHUNK_BYTES,
   MAX_AGENT_ACP_TRANSFER_BYTES,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import type { RemoteClientCore } from './index.js'
 import { createRemoteId, RemoteGatewayError } from './remote-gateway.js'
 

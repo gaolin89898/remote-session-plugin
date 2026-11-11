@@ -10,7 +10,7 @@ import {
   type HarnessApiTransferCommitResult,
   type HarnessApiTransferReadResult,
   type RemoteWorkspaceTypeDescription,
-} from '@dsh-remote/protocol'
+} from '@remote-session-plugin/protocol'
 import type { RemoteClientCore, RemoteRpcOptions } from './index.js'
 
 const DIRECT_REMOTE_CALL_BYTES = 2 * 1024 * 1024

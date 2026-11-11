@@ -1,7 +1,7 @@
 import { request as httpRequest, type ClientRequest, type IncomingMessage, type IncomingHttpHeaders } from 'node:http'
 import { WebSocket } from 'ws'
 import { loopbackRequestSchema, LOOPBACK_CHUNK_BYTES, LOOPBACK_MAX_BODY_BYTES, LOOPBACK_MAX_WS_BYTES, LOOPBACK_MAX_CONNECTIONS,
-  type LoopbackRequest, type LoopbackWsRead } from '@dsh-remote/protocol'
+  type LoopbackRequest, type LoopbackWsRead } from '@remote-session-plugin/protocol'
 import { RpcError } from './safe-error.js'
 
 interface HttpHandle {

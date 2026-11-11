@@ -2,11 +2,11 @@
   "version": "0.6.4",
   "author": "liguobao <lgb835485368@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/gaolin89898/ds-harness-remote#readme",
+  "homepage": "https://github.com/gaolin89898/remote-session-plugin#readme",
   "bugs": {
-    "url": "https://github.com/gaolin89898/ds-harness-remote/issues"
+    "url": "https://github.com/gaolin89898/remote-session-plugin/issues"
   },
-  "name": "ds-harness-remote-tui",
+  "name": "remote-session-plugin-tui",
   "description": "Remote Host integration for DeepSeek Harness TUI.",
   "type": "module",
   "main": "./index.js",
@@ -23,7 +23,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gaolin89898/ds-harness-remote.git",
+    "url": "git+https://github.com/gaolin89898/remote-session-plugin.git",
     "directory": "packages/tui"
   },
   "engines": {
@@ -39,7 +39,7 @@
     }
   },
   "dependencies": {
-    "ds-harness-remote": "workspace:0.6.4",
+    "remote-session-plugin": "workspace:0.6.4",
     "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1",
     "@deepseek-ai/dsh-client-file-upload": "0.2.2-rc.1",
     "@deepseek-ai/dsh-session-reference": "0.2.2-rc.1",

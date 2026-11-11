@@ -1,4 +1,4 @@
-import type { AgentAcpFrameData } from '@dsh-remote/protocol'
+import type { AgentAcpFrameData } from '@remote-session-plugin/protocol'
 import { acpImageLimits } from './image-content.js'
 import { piToolResult } from './pi-tool-result.js'
 import type { AcpCatalogBackend, AcpModelSelection } from './virtual-catalog.js'

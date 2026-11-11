@@ -8,8 +8,8 @@ import {
   type RpcErrorPayload,
   type RpcMethod,
   type RpcResponsePayload,
-} from '@dsh-remote/protocol'
-import type { RemoteTransport } from '@dsh-remote/webrtc'
+} from '@remote-session-plugin/protocol'
+import type { RemoteTransport } from '@remote-session-plugin/webrtc'
 
 export type RemoteClientErrorCode =
   | 'RPC_TIMEOUT'

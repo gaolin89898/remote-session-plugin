@@ -2,7 +2,7 @@ import { workspaceUploadMaxBytes } from './workspace-transfer-limits.js'
 import { constants } from 'node:fs'
 import { open, type FileHandle } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import type { RemoteClientCore } from '@dsh-remote/client-core'
+import type { RemoteClientCore } from '@remote-session-plugin/client-core'
 import { z } from 'zod'
 
 const CHUNK = 64 * 1024

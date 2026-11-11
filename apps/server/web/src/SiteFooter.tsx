@@ -1,7 +1,7 @@
 import { AppleOutlined, HistoryOutlined, LinkOutlined, MobileOutlined } from '@ant-design/icons'
 
-const REPOSITORY = 'https://github.com/gaolin89898/ds-harness-remote'
-const IOS_BETA_URL = 'https://github.com/gaolin89898/ds-harness-remote/issues/20'
+const REPOSITORY = 'https://github.com/gaolin89898/remote-session-plugin'
+const IOS_BETA_URL = 'https://github.com/gaolin89898/remote-session-plugin/issues/20'
 const CHANGELOG_URL = `${REPOSITORY}/blob/main/docs/CHANGELOG.md`
 const DOWNLOAD_URL = `${REPOSITORY}/releases/latest`
 

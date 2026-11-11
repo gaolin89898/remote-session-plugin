@@ -69,7 +69,7 @@ RC.1 的源码适配与本地自动化验证见兼容性说明；不能替代真
 
 ## Claude Code ACP（Issue #125）
 
-- [x] 创建 [Issue #125](https://github.com/gaolin89898/ds-harness-remote/issues/125)，开始 Host `claude` 后端与专用 ACP stdio adapter 接入，默认关闭。
+- [x] 创建 [Issue #125](https://github.com/gaolin89898/remote-session-plugin/issues/125)，开始 Host `claude` 后端与专用 ACP stdio adapter 接入，默认关闭。
 - [x] 完成 Desktop Plugin 的 Claude 工作区/会话内存投影、独立后端识别、历史恢复与模型切换；独立 Remote Web runtime 另行接入。
 - [x] 复用已有 OpenAI 兼容端点/凭据与 `gpt-6-sol` 完成真实 Claude ACP 初始化、文字对话及本机 Gateway `Write` 工具拒绝/单次允许；同会话第二次工具调用重新审批，真实句柄的跨连接、持久授权、result 越权及重放被拒绝。
 - [x] Claude Host 中断、catalog/load 与独立有界 history：真实待审批 Write 取消后旧句柄失效/无文件；Bash 运行期间 history 不打断 turn，随后返回 cancelled；Gateway/adapter 进程重启后 catalog/load/history 与上下文继续对话通过。
@@ -120,7 +120,7 @@ transport 状态机；普通 UI、文案和辅助脚本不单独补测试。
 - [x] 同账号 membership、受保护 peer descriptor 与本地 pinned trust 双重授权
 - [x] Relay control、标准 Noise IK、counter/replay 拒绝与 opaque ciphertext
 - [x] Desktop Plugin Host runtime、Settings 配置和 GitHub/npm Bundle 入口
-- [x] 历史：dsh-TUI profile 在无 Desktop `connection` 服务时默认启动 Host，并通过原生 `/remote` 的 `login [github|zhihu]`、`status`、`logout` 完成终端授权和状态管理；`ds-harness-remote` 保留为启动前 CLI（0.6.3 起移除该集成，后续版本恢复）
+- [x] 历史：dsh-TUI profile 在无 Desktop `connection` 服务时默认启动 Host，并通过原生 `/remote` 的 `login [github|zhihu]`、`status`、`logout` 完成终端授权和状态管理；`remote-session-plugin` 保留为启动前 CLI（0.6.3 起移除该集成，后续版本恢复）
 - [x] 历史 Host ApiProxy bridge 与 switch（2026-10-25 已移除）
 - [x] Harness v0.1.2 alpha.1–rc.1 Typert Remote unary/stream/event carrier、固定 endpoint allowlist、加密 capability 探测；rc.2 ApiProxy 激活分支已移除
 - [x] Harness v0.1.5 rc.1 / v0.2.0 rc.1 Session V3 capability、严格 surface replacement、Assistant stream 与 v0.1.2/V3 mutation 前混连拒绝

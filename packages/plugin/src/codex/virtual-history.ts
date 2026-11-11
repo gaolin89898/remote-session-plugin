@@ -1,5 +1,5 @@
-import { projectCodexModel, projectCodexThread } from '@dsh-remote/client-core'
-import type { CodexPermissionSnapshot } from '@dsh-remote/protocol'
+import { projectCodexModel, projectCodexThread } from '@remote-session-plugin/client-core'
+import type { CodexPermissionSnapshot } from '@remote-session-plugin/protocol'
 import type { HarnessSessionGeneration } from '../harness-version.js'
 import { contentBlocks, toolOutputImageBlocks } from './codex-image-codec.js'
 import type { CodexModelSelection } from './virtual-catalog.js'

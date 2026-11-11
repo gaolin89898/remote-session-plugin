@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { deviceTokenPairSchema } from '@dsh-remote/protocol';
+import { deviceTokenPairSchema } from '@remote-session-plugin/protocol';
 export const pairingDeviceSchema = z.object({
     deviceId: z.string().min(1).max(128), name: z.string().max(128), role: z.enum(['host', 'client']),
     platform: z.string().max(32), identityKey: z.string().regex(/^[A-Za-z0-9_-]{43}$/),

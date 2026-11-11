@@ -1326,7 +1326,7 @@ Client 不能接管本地创建或其它设备的终端。list 仅返回本设�
 进程回收遵循上游保留/空闲策略，Host 重启不恢复进程。终端关闭成功移除归属。
 
 Host 访问设置禁止由 Remote `settings/update|replace|mutate` 修改（命名空间
-`ds-harness-remote`、`dsh-remote`，包括 legacy ApiProxy）；只能通过 Host 本地设置入口修改。
+`remote-session-plugin`、`ds-harness-remote`、`dsh-remote`，包括 legacy ApiProxy）；只能通过 Host 本地设置入口修改。
 加密发送串行化，队列最多 8 MiB / 256 消息；Relay 等待 WebSocket 缓冲回落至 512 KiB，
 最多等待 10 秒，失败关闭通道。Client stream 队列最多 4 MiB / 256 帧，超限终止流并要求恢复。
 这些上限不保证终端每一行输出都可保留；恢复使用上游有界屏幕快照。

@@ -1,5 +1,5 @@
 # This bundle adds the Host Remote API to a dsh-TUI profile.
-# Keep the browser and Desktop Host entry in ds-harness-remote unchanged.
+# Keep the browser and Desktop Host entry in remote-session-plugin unchanged.
 - insert:
     - id: connection
       name: '@deepseek-ai/dsh-client-connection'
@@ -33,8 +33,8 @@
       name: '@deepseek-ai/dsh-api-remotes'
     - id: workspace-changes
       name: '@deepseek-ai/dsh-workspace-changes'
-    - id: ds-harness-remote-tui
-      name: 'ds-harness-remote-tui'
+    - id: remote-session-plugin-tui
+      name: 'remote-session-plugin-tui'
       inject: [settings, connection]
       config:
         enabled: true

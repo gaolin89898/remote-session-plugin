@@ -1632,7 +1632,7 @@ Minimum version required to store current data is: ` + bestVersion + `.
   }
 
   // packages/plugin/src/client-locale.ts
-  var localeNamespace = "ds-harness-remote", en = {
+  var localeNamespace = "remote-session-plugin", en = {
     serverSavedLive: "Server address saved and applied.",
     saveServerBeforeLogin: "Save the Server address before continuing sign-in or pairing.",
     pairingLoginTab: "DSH Go pairing",
@@ -3382,7 +3382,7 @@ If a code was sent, recover the original submission without changing it.`,
             { className: "dshRemoteAcpSummaryText" },
             React.createElement("strong", null, t("agentBackends")),
             React.createElement("p", null, t("acpHint"), React.createElement("a", {
-              href: "https://github.com/gaolin89898/ds-harness-remote/blob/feat/cursor-remote/docs/acp-remote.md",
+              href: "https://github.com/gaolin89898/remote-session-plugin/blob/feat/cursor-remote/docs/acp-remote.md",
               target: "_blank",
               rel: "noopener noreferrer",
               onClick: (event) => event.stopPropagation()
@@ -5003,7 +5003,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
         ),
         updateNotice === void 0 ? null : React.createElement("a", {
           className: "dshRemoteAccountUpdate",
-          href: "https://github.com/gaolin89898/ds-harness-remote/releases",
+          href: "https://github.com/gaolin89898/remote-session-plugin/releases",
           target: "_blank",
           rel: "noreferrer",
           title: updateNotice
@@ -5130,7 +5130,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
                     ),
                     selectedHost === void 0 ? React.createElement("a", {
                       className: "dshRemoteStarLink",
-                      href: "https://github.com/gaolin89898/ds-harness-remote",
+                      href: "https://github.com/gaolin89898/remote-session-plugin",
                       target: "_blank",
                       rel: "noreferrer"
                     }, t("starProject")) : null
@@ -5183,7 +5183,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
                   React.createElement(
                     "a",
                     {
-                      href: "https://github.com/gaolin89898/ds-harness-remote",
+                      href: "https://github.com/gaolin89898/remote-session-plugin",
                       target: "_blank",
                       rel: "noopener noreferrer"
                     },
@@ -6174,7 +6174,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
   }
 
   // packages/plugin/src/control-route.ts
-  var CONTROL_RPC_PREFIX = "/ds-harness-remote", STATUS_STREAM_ENDPOINT = "status.events", STATUS_STREAM_PATH = `${CONTROL_RPC_PREFIX}/${STATUS_STREAM_ENDPOINT}`;
+  var CONTROL_RPC_PREFIX = "/remote-session-plugin", STATUS_STREAM_ENDPOINT = "status.events", STATUS_STREAM_PATH = `${CONTROL_RPC_PREFIX}/${STATUS_STREAM_ENDPOINT}`;
 
   // packages/plugin/src/plugin-route-client.ts
   var PluginRouteFailure = class extends Error {
@@ -6471,7 +6471,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
   }
 
   // packages/plugin/src/client.ts
-  var clientModuleId = "ds-harness-remote", controlRouteBackoffStepsMs = [1e3, 2e3, 5e3, 1e4, 3e4], ControlRouteUnavailableError = class extends Error {
+  var clientModuleId = "remote-session-plugin", controlRouteBackoffStepsMs = [1e3, 2e3, 5e3, 1e4, 3e4], ControlRouteUnavailableError = class extends Error {
     constructor(message) {
       super(message), this.name = "ControlRouteUnavailableError";
     }
@@ -6504,7 +6504,8 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
         }
       })(), RemotePluginOptions = createRemotePluginOptions(React);
       function RemotePluginSettingsAction(props) {
-        if (pluginSubjectPackageName(props.subject) !== "ds-harness-remote") return null;
+        let subjectPackage = pluginSubjectPackageName(props.subject);
+        if (subjectPackage !== "remote-session-plugin" && subjectPackage !== "ds-harness-remote") return null;
         let label = props.t("openPluginSettings");
         return React.createElement("button", {
           type: "button",
@@ -6680,9 +6681,9 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
         if (window.__DS_HARNESS_REMOTE_CLIENT_ACTIVE__) return;
         window.__DS_HARNESS_REMOTE_CLIENT_ACTIVE__ = !0, readyPluginSessions(ctx.sessions), ctx.effect(() => () => {
           window.__DS_HARNESS_REMOTE_CLIENT_ACTIVE__ = !1;
-        }, "ds-harness-remote: client singleton"), ctx.effect(() => () => {
+        }, "remote-session-plugin: client singleton"), ctx.effect(() => () => {
           pluginRouteFetch !== void 0 && window.fetch === pluginRouteFetch && (window.fetch = originalPluginFetch);
-        }, "ds-harness-remote: plugin route fetch");
+        }, "remote-session-plugin: plugin route fetch");
         let t = ctx.locale.bind(localeNamespace), remoteOpenListeners = /* @__PURE__ */ new Set(), openRemote = () => {
           for (let listener of remoteOpenListeners) listener();
         }, subscribeOpen = (listener) => (remoteOpenListeners.add(listener), () => {
@@ -6715,17 +6716,17 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
           url: STATUS_STREAM_PATH.slice(1),
           readStatus: () => control("status"),
           onFallback: (reason) => {
-            console.warn("ds-harness-remote: status event stream unavailable, polling status instead:", reason);
+            console.warn("remote-session-plugin: status event stream unavailable, polling status instead:", reason);
           }
         });
-        ctx.effect(() => () => statusFeed.close(), "ds-harness-remote: status stream"), ctx.effect(() => {
+        ctx.effect(() => () => statusFeed.close(), "remote-session-plugin: status stream"), ctx.effect(() => {
           let unsubscribe = statusFeed.subscribe((status) => {
             document.documentElement.classList.toggle("dshRemoteBrowserUnavailable", status.mode === "remote");
           });
           return () => {
             unsubscribe(), document.documentElement.classList.remove("dshRemoteBrowserUnavailable");
           };
-        }, "ds-harness-remote: hide local browser entry in remote mode"), ctx.effect(() => subscribeRemoteRecovery(statusFeed, () => ctx.connection.reconnect?.()), "ds-harness-remote: carrier recovery"), ctx.effect(() => {
+        }, "remote-session-plugin: hide local browser entry in remote mode"), ctx.effect(() => subscribeRemoteRecovery(statusFeed, () => ctx.connection.reconnect?.()), "remote-session-plugin: carrier recovery"), ctx.effect(() => {
           let disposed = !1, unsubscribeWorkspaces, unsubscribeSessions, selection, opening = !1, reconcile = () => {
             if (disposed || opening || selection === void 0) return;
             let pending = selection, workspaceSnapshot = ctx.workspaces.list.getSnapshot();
@@ -6758,7 +6759,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
           }), () => {
             disposed = !0, unsubscribeWorkspaces?.(), unsubscribeSessions?.();
           };
-        }, "ds-harness-remote: resume selected workspace"), ctx.inject(["fileViewer"], (fileViewerContext) => {
+        }, "remote-session-plugin: resume selected workspace"), ctx.inject(["fileViewer"], (fileViewerContext) => {
           let viewer = fileViewerContext.get("fileViewer");
           viewer !== void 0 && fileViewerContext.effect(() => {
             let unregister, latestSaveAsAllowed = !1, latestSaveAsMaxBytes = REMOTE_FILE_SAVE_AS_MAX_BYTES, unsubscribe = statusFeed.subscribe((status) => {
@@ -6771,7 +6772,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
             return () => {
               unsubscribe(), unregister?.();
             };
-          }, "ds-harness-remote: remote file viewer provider");
+          }, "remote-session-plugin: remote file viewer provider");
         });
         let RemoteMentionIcon = (props) => React.createElement(
           "svg",
@@ -6831,16 +6832,16 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
             return () => {
               document.removeEventListener("click", stopHostFileOpen, !0), unregister();
             };
-          }, "ds-harness-remote: host mention source");
-        }), ctx.effect(() => ctx.locale.register(localeNamespace, { zh, en }), "ds-harness-remote: dictionaries"), ctx.effect(() => installStyle(clientModuleId), "ds-harness-remote: client styles"), ctx.effect(() => installTerminalAvailabilityNotice(statusFeed, t), "ds-harness-remote: terminal availability notice"), ctx.slots.inject("shell.overlay", () => ctx.slots.register({
+          }, "remote-session-plugin: host mention source");
+        }), ctx.effect(() => ctx.locale.register(localeNamespace, { zh, en }), "remote-session-plugin: dictionaries"), ctx.effect(() => installStyle(clientModuleId), "remote-session-plugin: client styles"), ctx.effect(() => installTerminalAvailabilityNotice(statusFeed, t), "remote-session-plugin: terminal availability notice"), ctx.slots.inject("shell.overlay", () => ctx.slots.register({
           name: "shell.overlay",
-          id: "ds-harness-remote-global-context",
+          id: "remote-session-plugin-global-context",
           order: 20,
           locale: localeNamespace,
           inject: () => ({ control, statusFeed, onSignIn: openRemote })
         }, RemoteSessionHeaderAction)), ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
           name: "sidebar.footer.action",
-          id: "ds-harness-remote-workspace",
+          id: "remote-session-plugin-workspace",
           order: -20,
           locale: localeNamespace,
           inject: () => ({
@@ -6854,7 +6855,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
           })
         }, RemoteWorkspaceAction)), ctx.slots.inject("plugins.row.config", () => ctx.slots.register({
           name: "plugins.row.config",
-          key: "ds-harness-remote#ds-harness-remote",
+          key: "remote-session-plugin#remote-session-plugin",
           locale: localeNamespace,
           inject: () => ({
             control,
@@ -6865,7 +6866,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
           })
         }, RemotePluginOptions)), ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({
           name: "plugins.bundle.config",
-          key: "ds-harness-remote",
+          key: "remote-session-plugin",
           locale: localeNamespace,
           inject: () => ({
             control,
@@ -6876,7 +6877,7 @@ ${row.path}`.toLocaleLowerCase().includes(query)) : expanded ? rows : rows.slice
           })
         }, RemotePluginOptions)), ctx.slots.inject("plugins.detail.actions", () => ctx.slots.register({
           name: "plugins.detail.actions",
-          id: "ds-harness-remote-settings-link",
+          id: "remote-session-plugin-settings-link",
           order: 30,
           locale: localeNamespace,
           inject: () => ({})
